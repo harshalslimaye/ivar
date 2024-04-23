@@ -90,12 +90,12 @@ func GetNewPackageJson(hasDefault bool) *PackageJson {
 func Exists() bool {
 	_, err := os.Stat("package.json")
 	if err == nil {
-		return true // package.json exists
+		return true
 	}
 	if os.IsNotExist(err) {
-		return false // package.json does not exist
+		return false
 	}
-	// Error occurred while checking file status
+
 	return false
 }
 

@@ -9,7 +9,10 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 
+	"github.com/harshalslimaye/ivar/internal/graph"
+	"github.com/harshalslimaye/ivar/internal/helper"
 	"github.com/harshalslimaye/ivar/internal/packagejson"
 	"github.com/spf13/cobra"
 )
@@ -20,9 +23,14 @@ func InstallCmd() *cobra.Command {
 		Short: "This command installs a package along with its dependencies.",
 		Run: func(cmd *cobra.Command, args []string) {
 			pkg := packagejson.ReadPackageJson()
+			list := graph.DependencyList{
+				Dependencies: []*graph.Dependency{},
+				Visited:      make(map[string]string),
+			}
+			graph.BuildList(&list, pkg.Dependencies)
 
-			for k, v := range pkg.Dependencies {
-				DownloadDependency(k, v)
+			for _, v := range list.Dependencies {
+				DownloadDependency(v.Name, v.Version)
 			}
 		},
 	}
@@ -30,46 +38,62 @@ func InstallCmd() *cobra.Command {
 	return cmd
 }
 
-// PackageMetadata represents the structure of package metadata
-type PackageMetadata struct {
-	Name    string `json:"name"`
-	Version string `json:"version"`
-	// Add more fields as needed
-}
-
-// DownloadDependency downloads a package from the npm registry and extracts it
-func DownloadDependency(packageName string, version string) error {
-	// Construct the URL for fetching package metadata
-	url := fmt.Sprintf("https://registry.npmjs.org/%s/%s", packageName, version)
-
-	// Send GET request to the npm registry API
-	resp, err := http.Get(url)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	// Check if the request was successful
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to download package metadata: %s", resp.Status)
-	}
-
-	// Decode the response body (package metadata) into PackageMetadata struct
-	var metadata PackageMetadata
-	err = json.NewDecoder(resp.Body).Decode(&metadata)
+func DownloadDependency(name string, version string) error {
+	url := fmt.Sprintf("https://registry.npmjs.org/%s/%s", name, version)
+	res, err := http.Get(url)
 	if err != nil {
 		return err
 	}
 
-	// Create a directory for the downloaded package
-	downloadDir := filepath.Join("node_modules", packageName)
+	var dep graph.Dependency
+	err = json.NewDecoder(res.Body).Decode(&dep)
+	if err != nil {
+		return err
+	}
+
+	downloadDir := filepath.Join("node_modules", name)
 	err = os.MkdirAll(downloadDir, 0755)
 	if err != nil {
 		return err
 	}
 
-	// Extract the tarball from the response body
-	err = extractTarball(resp.Body, downloadDir)
+	DownloadTarball(name, version, downloadDir)
+
+	r, err := os.Open(fmt.Sprintf(downloadDir+helper.GetPathSeparator()+"%s-%s.tgz", name, version))
+	if err != nil {
+		fmt.Println("error")
+	}
+	err = ExtractTarball(r, helper.GetCurrentDirPath()+helper.GetPathSeparator()+downloadDir)
+	if err != nil {
+		return err
+	}
+	r.Close()
+
+	// Deleting the tarball once installation is complete
+	tarballPath := fmt.Sprintf(downloadDir+helper.GetPathSeparator()+"%s-%s.tgz", name, version)
+	if err := os.Remove(tarballPath); err != nil {
+		return fmt.Errorf("DownloadDependency: Failed to delete tarball: %w", err)
+	}
+
+	return nil
+}
+
+func DownloadTarball(name string, version string, path string) error {
+	url := fmt.Sprintf("https://registry.npmjs.org/%s/-/%s-%s.tgz", name, name, version)
+
+	res, err := http.Get(url)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+
+	out, err := os.Create(fmt.Sprintf(path+helper.GetPathSeparator()+"%s-%s.tgz", name, version))
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	_, err = io.Copy(out, res.Body)
 	if err != nil {
 		return err
 	}
@@ -77,53 +101,48 @@ func DownloadDependency(packageName string, version string) error {
 	return nil
 }
 
-// extractTarball extracts the contents of a tarball from the given reader to the specified directory
-func extractTarball(reader io.Reader, destDir string) error {
-	// Create a gzip reader to decompress the tarball file
-	gzipReader, err := gzip.NewReader(reader)
+func ExtractTarball(gzipStream io.Reader, targetPath string) error {
+	uncompressedStream, err := gzip.NewReader(gzipStream)
 	if err != nil {
 		return err
 	}
-	defer gzipReader.Close()
 
-	// Create a tar reader to read the contents of the tarball
-	tarReader := tar.NewReader(gzipReader)
-
-	// Iterate over each file in the tarball
+	tarReader := tar.NewReader(uncompressedStream)
 	for {
 		header, err := tarReader.Next()
 		if err == io.EOF {
-			// End of tarball
 			break
 		}
 		if err != nil {
 			return err
 		}
 
-		// Determine the path to extract the file to
-		targetPath := filepath.Join(destDir, header.Name)
+		targetFilePath := filepath.Join(targetPath, strings.TrimPrefix(header.Name, "package/"))
 
-		// Check if the file is a directory
-		if header.Typeflag == tar.TypeDir {
-			// Create the directory
-			err := os.MkdirAll(targetPath, os.FileMode(header.Mode))
-			if err != nil {
-				return err
+		switch header.Typeflag {
+		case tar.TypeDir:
+			if err := os.MkdirAll(targetFilePath, 0755); err != nil {
+				return fmt.Errorf("ExtractTarGz: MkdirAll() failed: %w", err)
 			}
-			continue
-		}
+		case tar.TypeReg:
+			if err := os.MkdirAll(filepath.Dir(targetFilePath), 0755); err != nil {
+				return fmt.Errorf("ExtractTarGz: MkdirAll() failed: %w", err)
+			}
+			outFile, err := os.Create(targetFilePath)
+			if err != nil {
+				return fmt.Errorf("ExtractTarGz: Create() failed: %w", err)
+			}
 
-		// Create the file
-		file, err := os.Create(targetPath)
-		if err != nil {
-			return err
-		}
-		defer file.Close()
+			if _, err := io.Copy(outFile, tarReader); err != nil {
+				outFile.Close()
+				return fmt.Errorf("ExtractTarGz: Copy() failed: %w", err)
+			}
 
-		// Write the file contents to the file
-		_, err = io.Copy(file, tarReader)
-		if err != nil {
-			return err
+			if err := outFile.Close(); err != nil {
+				return fmt.Errorf("ExtractTarGz: Close() failed: %w", err)
+			}
+		default:
+			return fmt.Errorf("ExtractTarGz: unknown type: %b in %s", header.Typeflag, header.Name)
 		}
 	}
 
