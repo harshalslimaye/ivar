@@ -29,7 +29,6 @@ func (pkg PackageJson) ToInitJson() ([]byte, error) {
 	jsonMap.Set("version", pkg.Version)
 	jsonMap.Set("description", pkg.Description)
 	jsonMap.Set("main", pkg.Main)
-	jsonMap.Set("scripts", pkg.Scripts)
 	jsonMap.Set("repository", pkg.Repository)
 
 	if pkg.Keywords != nil && len(pkg.Keywords) > 0 {
