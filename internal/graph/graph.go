@@ -3,106 +3,89 @@ package graph
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
-	"sort"
+	"slices"
 
-	"github.com/Masterminds/semver/v3"
+	"github.com/harshalslimaye/ivar/internal/vercon"
 )
 
 type Dependency struct {
-	Name    string `json:"name"`
-	Version string `json:"version"`
-}
-
-type DependencyList struct {
+	Name         string
+	Version      string
 	Dependencies []*Dependency
-	Visited      map[string]string
 }
 
-func BuildList(l *DependencyList, deps map[string]string) {
+type Version struct {
+	Number     string
+	Count      int
+	Dependents []*Dependency
+}
+
+type Graph struct {
+	Dependencies []*Dependency
+	List         map[string][]*Version
+}
+
+func (g *Graph) AddToList(name string, version string, dep *Dependency) {
+	_, ok := g.List[name]
+	if ok {
+		exists := slices.ContainsFunc(g.List[name], func(ver *Version) bool {
+			return ver.Number == version
+		})
+		if !exists {
+			g.List[name] = append(g.List[name], NewVersion(version, dep))
+		} else {
+			idx := VersionByIndex(g.List[name], version)
+			g.List[name][idx].Count++
+
+			haveDep := slices.ContainsFunc(g.List[name][idx].Dependents, func(d *Dependency) bool {
+				return d.Name == dep.Name && d.Version == dep.Version
+			})
+			if !haveDep {
+				g.List[name][idx].Dependents = append(g.List[name][idx].Dependents, dep)
+			}
+		}
+	} else {
+		g.List[name] = []*Version{NewVersion(version, dep)}
+	}
+}
+
+func VersionByIndex(versions []*Version, version string) int {
+	for i, v := range versions {
+		if v.Number == version {
+			return i
+		}
+	}
+
+	return -1
+}
+
+func NewVersion(version string, dep *Dependency) *Version {
+	return &Version{Number: version, Count: 1, Dependents: []*Dependency{dep}}
+}
+
+func BuildGraph(gph *Graph, deps map[string]string) {
+	vc := vercon.NewVercon()
 	for name, version := range deps {
-		if _, ok := l.Visited[name]; !ok {
-			FetchDependency(name, version, l)
-			GetAvailableVersions(name)
-		}
+		dep := &Dependency{Name: name, Version: vc.GetVersion(name, version), Dependencies: []*Dependency{}}
+		gph.Dependencies = append(gph.Dependencies, dep)
+		gph.AddToList(dep.Name, dep.Version, dep)
+		FetchDependency(dep, gph, vc)
 	}
 }
 
-func GetVersion(name string, version string) string {
-	return FindExactVersion(version, GetAvailableVersions(name))
-}
+func FetchDependency(dependency *Dependency, gph *Graph, vc *vercon.Vercon) error {
+	exactVersion := vc.GetVersion(dependency.Name, dependency.Version)
+	url := fmt.Sprintf("https://registry.npmjs.org/%s/%s", dependency.Name, exactVersion)
 
-// FindExactVersion finds the exact version that satisfies the given constraint
-func FindExactVersion(constraint string, versions []*semver.Version) string {
-	c, err := semver.NewConstraint(constraint)
-	if err != nil {
-		// Handle invalid constraint
-		fmt.Printf("Error parsing version constraint %s: %v\n", constraint, err)
-		return ""
-	}
-
-	var compatibleVersions []*semver.Version
-	for _, v := range versions {
-		if c.Check(v) {
-			compatibleVersions = append(compatibleVersions, v)
-		}
-	}
-
-	if len(compatibleVersions) == 0 {
-		// No compatible versions found
-		return ""
-	}
-
-	// Sort compatible versions
-	sort.Sort(semver.Collection(compatibleVersions))
-
-	// Return the highest compatible version
-	return compatibleVersions[len(compatibleVersions)-1].String()
-}
-
-func GetAvailableVersions(name string) []*semver.Version {
-	url := fmt.Sprintf("https://registry.npmjs.org/%s", name)
-	response, err := http.Get(url)
-	if err != nil {
-		fmt.Println("Error making HTTP request:", err)
-	}
-	defer response.Body.Close()
-
-	// Read the response body
-	body, err := io.ReadAll(response.Body)
-	if err != nil {
-		fmt.Println("Error reading response body:", err)
-	}
-
-	// Parse the JSON response
-	var data map[string]interface{}
-	err = json.Unmarshal(body, &data)
-	if err != nil {
-		fmt.Println("Error parsing JSON:", err)
-	}
-
-	// Extract keys of the "versions" array
-	versions := data["versions"].(map[string]interface{})
-	keys := make([]*semver.Version, 0, len(versions))
-	for key := range versions {
-		keys = append(keys, semver.MustParse(key))
-	}
-
-	return keys
-}
-
-func FetchDependency(name string, version string, list *DependencyList) error {
-	url := fmt.Sprintf("https://registry.npmjs.org/%s/%s", name, GetVersion(name, version))
-	fmt.Println(url)
 	res, err := http.Get(url)
 	if err != nil {
-		return fmt.Errorf("failed to fetch dependency %s@%s: %v", name, version, err)
+		return fmt.Errorf("failed to fetch dependency %s@%s: %v", dependency.Name, dependency.Version, err)
 	}
 	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to fetch dependency %s@%s: %s", name, version, res.Status)
+		return fmt.Errorf("failed to fetch dependency %s@%s: %s", dependency.Name, dependency.Version, res.Status)
 	}
 
 	var dep struct {
@@ -112,13 +95,16 @@ func FetchDependency(name string, version string, list *DependencyList) error {
 	}
 	err = json.NewDecoder(res.Body).Decode(&dep)
 	if err != nil {
-		return fmt.Errorf("failed to decode response body for dependency %s@%s: %v", name, version, err)
+		return fmt.Errorf("failed to decode response body for dependency %s@%s: %v", dependency.Name, dependency.Version, err)
 	}
-	list.Dependencies = append(list.Dependencies, &Dependency{Name: name, Version: version})
-	list.Visited[name] = version
 
 	if len(dep.Dependencies) > 0 {
-		BuildList(list, dep.Dependencies)
+		for k, v := range dep.Dependencies {
+			d := &Dependency{Name: k, Version: vc.GetVersion(k, v)}
+			gph.AddToList(d.Name, d.Version, dependency)
+			dependency.Dependencies = append(dependency.Dependencies, d)
+			FetchDependency(d, gph, vc)
+		}
 	}
 
 	return nil

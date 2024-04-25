@@ -18,14 +18,29 @@ func InstallCmd() *cobra.Command {
 		Short: "This command installs a package along with its dependencies.",
 		Run: func(cmd *cobra.Command, args []string) {
 			pkg := packagejson.ReadPackageJson()
-			list := graph.DependencyList{
+			gph := graph.Graph{
 				Dependencies: []*graph.Dependency{},
-				Visited:      make(map[string]string),
+				List:         make(map[string][]*graph.Version),
 			}
-			graph.BuildList(&list, pkg.Dependencies)
+			graph.BuildGraph(&gph, pkg.Dependencies)
 
-			for _, v := range list.Dependencies {
-				DownloadDependency(v.Name, v.Version)
+			for k := range gph.List {
+				basePath := filepath.Join("node_modules", k)
+				if len(gph.List[k]) == 1 {
+					DownloadDependency(k, gph.List[k][0].Number, basePath)
+				} else {
+					for i, value := range gph.List[k] {
+						if i == 0 {
+							DownloadDependency(k, value.Number, basePath)
+						} else {
+							for _, dv := range value.Dependents {
+								path := filepath.Join("node_modules", dv.Name, "node_modules", k)
+								fmt.Println(path)
+								DownloadDependency(k, value.Number, filepath.Join(path))
+							}
+						}
+					}
+				}
 			}
 		},
 	}
@@ -33,8 +48,7 @@ func InstallCmd() *cobra.Command {
 	return cmd
 }
 
-func DownloadDependency(name string, version string) error {
-	downloadDir := filepath.Join("node_modules", name)
+func DownloadDependency(name string, version string, downloadDir string) error {
 	err := os.MkdirAll(downloadDir, 0755)
 	if err != nil {
 		return err
