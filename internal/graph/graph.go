@@ -1,110 +1,117 @@
 package graph
 
 import (
-	"encoding/json"
 	"fmt"
-	"net/http"
-	"slices"
 
+	"github.com/harshalslimaye/ivar/internal/registry"
 	"github.com/harshalslimaye/ivar/internal/vercon"
 )
 
-type Dependency struct {
-	Name         string
-	Version      string
-	Dependencies []*Dependency
+var vc vercon.Vercon = *vercon.NewVercon()
+
+type Package struct {
+	Name    string
+	Version string
 }
 
-type Version struct {
-	Number     string
-	Count      int
-	Dependents []*Dependency
+type Node struct {
+	Package      *Package
+	Dependencies map[string]*Node
 }
 
 type Graph struct {
-	Dependencies []*Dependency
-	List         map[string][]*Version
+	Nodes map[string]*Node
 }
 
-func (g *Graph) AddToList(name string, version string, dep *Dependency) {
-	_, ok := g.List[name]
-	if ok {
-		exists := slices.ContainsFunc(g.List[name], func(ver *Version) bool {
-			return ver.Number == version
-		})
-		if !exists {
-			g.List[name] = append(g.List[name], NewVersion(version, dep))
-		} else {
-			idx := VersionByIndex(g.List[name], version)
-			g.List[name][idx].Count++
-
-			haveDep := slices.ContainsFunc(g.List[name][idx].Dependents, func(d *Dependency) bool {
-				return d.Name == dep.Name && d.Version == dep.Version
-			})
-			if !haveDep {
-				g.List[name][idx].Dependents = append(g.List[name][idx].Dependents, dep)
-			}
-		}
-	} else {
-		g.List[name] = []*Version{NewVersion(version, dep)}
+func NewGraph() *Graph {
+	return &Graph{
+		Nodes: make(map[string]*Node),
 	}
 }
 
-func VersionByIndex(versions []*Version, version string) int {
-	for i, v := range versions {
-		if v.Number == version {
-			return i
-		}
-	}
+func NewDependencyGraph(deps map[string]string) *Graph {
+	gh := NewGraph()
 
-	return -1
-}
-
-func NewVersion(version string, dep *Dependency) *Version {
-	return &Version{Number: version, Count: 1, Dependents: []*Dependency{dep}}
-}
-
-func BuildGraph(gph *Graph, deps map[string]string) {
-	vc := vercon.NewVercon()
 	for name, version := range deps {
-		dep := &Dependency{Name: name, Version: vc.GetVersion(name, version), Dependencies: []*Dependency{}}
-		gph.Dependencies = append(gph.Dependencies, dep)
-		gph.AddToList(dep.Name, dep.Version, dep)
-		FetchDependency(dep, gph, vc)
+		pkg := NewPackage(name, version)
+		gh.AddDependencies(pkg)
+	}
+
+	return gh
+}
+
+func NewPackage(packageName, packageVersion string) *Package {
+	return &Package{
+		Name:    packageName,
+		Version: vc.GetVersion(packageName, packageVersion),
 	}
 }
 
-func FetchDependency(dependency *Dependency, gph *Graph, vc *vercon.Vercon) error {
-	exactVersion := vc.GetVersion(dependency.Name, dependency.Version)
-	url := fmt.Sprintf("https://registry.npmjs.org/%s/%s", dependency.Name, exactVersion)
-
-	res, err := http.Get(url)
-	if err != nil {
-		return fmt.Errorf("failed to fetch dependency %s@%s: %v", dependency.Name, dependency.Version, err)
+func NewNode(pkg *Package) *Node {
+	return &Node{
+		Package:      pkg,
+		Dependencies: make(map[string]*Node),
 	}
-	defer res.Body.Close()
+}
 
-	if res.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to fetch dependency %s@%s: %s", dependency.Name, dependency.Version, res.Status)
-	}
+func (n *Node) AddDependencies(deps map[string]string) {
+	for depName, depVersion := range deps {
+		pkg := NewPackage(depName, depVersion)
+		node := NewNode(pkg)
+		n.AddDependency(node)
 
-	var dep struct {
-		Name         string
-		Version      string
-		Dependencies map[string]string
-	}
-	err = json.NewDecoder(res.Body).Decode(&dep)
-	if err != nil {
-		return fmt.Errorf("failed to decode response body for dependency %s@%s: %v", dependency.Name, dependency.Version, err)
-	}
-
-	if len(dep.Dependencies) > 0 {
-		for k, v := range dep.Dependencies {
-			d := &Dependency{Name: k, Version: vc.GetVersion(k, v)}
-			gph.AddToList(d.Name, d.Version, dependency)
-			dependency.Dependencies = append(dependency.Dependencies, d)
-			FetchDependency(d, gph, vc)
+		dependencies, err := registry.FetchDependencies(pkg.Name, pkg.Version)
+		if err != nil {
+			fmt.Println(err)
 		}
+
+		if len(dependencies) > 0 {
+			node.AddDependencies(dependencies)
+		}
+	}
+}
+
+func (g *Graph) AddDependencies(pkg *Package) *Node {
+	if node, exists := g.Nodes[pkg.Name]; exists {
+		return node
+	}
+
+	node := g.AddNode(pkg)
+
+	dependencies, err := registry.FetchDependencies(pkg.Name, pkg.Version)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	if len(dependencies) > 0 {
+		node.AddDependencies(dependencies)
+	}
+
+	return node
+}
+
+func (n *Node) AddDependency(node *Node) {
+	n.Dependencies[node.Package.Name] = node
+}
+
+func (n *Node) RemoveDependency(packageName string) {
+	delete(n.Dependencies, packageName)
+}
+
+func (g *Graph) AddNode(pkg *Package) *Node {
+	if _, exists := g.Nodes[pkg.Name]; !exists {
+		g.Nodes[pkg.Name] = &Node{
+			Package:      pkg,
+			Dependencies: make(map[string]*Node),
+		}
+	}
+
+	return g.Nodes[pkg.Name]
+}
+
+func (g *Graph) GetDependency(packageName string) *Package {
+	if _, exists := g.Nodes[packageName]; exists {
+		return g.Nodes[packageName].Package
 	}
 
 	return nil

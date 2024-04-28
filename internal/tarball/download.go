@@ -5,11 +5,11 @@ import (
 	"io"
 	"net/http"
 	"os"
-
-	"github.com/harshalslimaye/ivar/internal/helper"
+	"path/filepath"
 )
 
-func DownloadTarball(name string, version string, path string) error {
+// Use named return values for better readability and error handling
+func DownloadTarball(name string, version string, path string) (err error) {
 	url := fmt.Sprintf("https://registry.npmjs.org/%s/-/%s-%s.tgz", name, name, version)
 
 	res, err := http.Get(url)
@@ -18,16 +18,17 @@ func DownloadTarball(name string, version string, path string) error {
 	}
 	defer res.Body.Close()
 
-	out, err := os.Create(fmt.Sprintf(path+helper.GetPathSeparator()+"%s-%s.tgz", name, version))
+	out, err := os.Create(filepath.Join(path, fmt.Sprintf("%s-%s.tgz", name, version)))
 	if err != nil {
 		return err
 	}
-	defer out.Close()
+	defer func() {
+		closeErr := out.Close()
+		if err == nil {
+			err = closeErr
+		}
+	}()
 
 	_, err = io.Copy(out, res.Body)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }

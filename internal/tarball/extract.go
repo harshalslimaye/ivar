@@ -10,8 +10,15 @@ import (
 	"strings"
 )
 
-func ExtractTarball(gzipStream io.Reader, targetPath string) error {
-	uncompressedStream, err := gzip.NewReader(gzipStream)
+func ExtractTarball(sourcePath, targetPath string) error {
+	r, err := os.Open(sourcePath)
+	defer r.Close()
+
+	if err != nil {
+		return err
+	}
+
+	uncompressedStream, err := gzip.NewReader(r)
 	if err != nil {
 		return err
 	}

@@ -1,0 +1,28 @@
+# Compiled Object files, Static and Dynamic libs (Shared Objects)
+*.o
+*.a
+*.so
+
+# Folders
+_vendor/
+bin/
+dist/
+vendor/
+
+# Binary executables
+*.exe
+*.out
+
+# Go specific
+*.test
+*.prof
+*.cover
+
+# End of File Marker
+.idea/
+.vscode/
+.DS_Store
+
+# javascript files
+package.json
+node_modules/

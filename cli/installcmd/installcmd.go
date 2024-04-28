@@ -1,7 +1,6 @@
 package installcmd
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 
@@ -17,59 +16,67 @@ func InstallCmd() *cobra.Command {
 		Use:   "install",
 		Short: "This command installs a package along with its dependencies.",
 		Run: func(cmd *cobra.Command, args []string) {
-			pkg := packagejson.ReadPackageJson()
-			gph := graph.Graph{
-				Dependencies: []*graph.Dependency{},
-				List:         make(map[string][]*graph.Version),
-			}
-			graph.BuildGraph(&gph, pkg.Dependencies)
+			pkgjson := packagejson.ReadPackageJson()
+			gh := graph.NewDependencyGraph(pkgjson.Dependencies)
 
-			for k := range gph.List {
-				basePath := filepath.Join("node_modules", k)
-				if len(gph.List[k]) == 1 {
-					DownloadDependency(k, gph.List[k][0].Number, basePath)
-				} else {
-					for i, value := range gph.List[k] {
-						if i == 0 {
-							DownloadDependency(k, value.Number, basePath)
-						} else {
-							for _, dv := range value.Dependents {
-								path := filepath.Join("node_modules", dv.Name, "node_modules", k)
-								fmt.Println(path)
-								DownloadDependency(k, value.Number, filepath.Join(path))
-							}
-						}
-					}
-				}
-			}
+			WalkGraph(gh)
 		},
 	}
 
 	return cmd
 }
 
+func WalkGraph(gh *graph.Graph) {
+	for _, node := range gh.Nodes {
+		WalkNode(nil, node, nil)
+	}
+}
+
+func WalkNode(parent *graph.Node, node *graph.Node, visited map[string]string) {
+	if visited == nil {
+		visited = make(map[string]string) // keeps track of packages in root node_modules
+	}
+
+	// Check if the package has already been visited
+	if _, exists := visited[node.Package.Name]; exists {
+		if visited[node.Package.Name] != node.Package.Version {
+			dir := filepath.Join("node_modules", parent.Package.Name, "node_modules", node.Package.Name)
+
+			// Process the package here (e.g., download and install)
+			DownloadDependency(node.Package.Name, node.Package.Version, dir)
+		}
+	} else {
+		dir := filepath.Join("node_modules", node.Package.Name)
+		// Mark the package as visited
+		visited[node.Package.Name] = node.Package.Version
+
+		// Process the package here (e.g., download and install)
+		DownloadDependency(node.Package.Name, node.Package.Version, dir)
+
+		// Recursively walk through dependencies
+		for _, dependencyNode := range node.Dependencies {
+			WalkNode(node, dependencyNode, visited)
+		}
+	}
+}
 func DownloadDependency(name string, version string, downloadDir string) error {
-	err := os.MkdirAll(downloadDir, 0755)
-	if err != nil {
+	sourcePath := filepath.Join(downloadDir, name+"-"+version+".tgz")
+	targetPath := helper.GetCurrentDirPath() + helper.GetPathSeparator() + downloadDir
+
+	if err := os.MkdirAll(downloadDir, 0755); err != nil {
 		return err
 	}
 
-	tarball.DownloadTarball(name, version, downloadDir)
-
-	r, err := os.Open(fmt.Sprintf(downloadDir+helper.GetPathSeparator()+"%s-%s.tgz", name, version))
-	if err != nil {
-		fmt.Println("error")
-	}
-	err = tarball.ExtractTarball(r, helper.GetCurrentDirPath()+helper.GetPathSeparator()+downloadDir)
-	if err != nil {
+	if err := tarball.DownloadTarball(name, version, downloadDir); err != nil {
 		return err
 	}
-	r.Close()
 
-	// Deleting the tarball once installation is complete
-	tarballPath := fmt.Sprintf(downloadDir+helper.GetPathSeparator()+"%s-%s.tgz", name, version)
-	if err := os.Remove(tarballPath); err != nil {
-		return fmt.Errorf("DownloadDependency: Failed to delete tarball: %w", err)
+	if err := tarball.ExtractTarball(sourcePath, targetPath); err != nil {
+		return err
+	}
+
+	if err := tarball.DeleteTarball(sourcePath); err != nil {
+		return err
 	}
 
 	return nil
