@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"sync"
 
 	"github.com/logrusorgru/aurora"
 )
@@ -15,24 +14,9 @@ type Dependency struct {
 	Dependencies map[string]string
 }
 
-var cache map[string]map[string]string
-var cacheMutex sync.RWMutex
-
-func init() {
-	cache = make(map[string]map[string]string)
-}
-
 func FetchDependencies(name, version string) (map[string]string, error) {
-	cacheMutex.RLock()
-	if deps, ok := cache[name+version]; ok {
-		cacheMutex.RUnlock()
-		fmt.Printf(aurora.BrightYellow("%s@%s is chilling in the cache!\n").String(), name, version)
-		return deps, nil
-	}
-	cacheMutex.RUnlock()
-
 	endpoint := fmt.Sprintf("https://registry.npmjs.org/%s/%s", name, version)
-	fmt.Println(aurora.BrightCyan("Fetching dependencies for " + name + "@" + version))
+	fmt.Println(aurora.Sprintf(aurora.Cyan("Fetching dependencies for %s@%s"), aurora.Green(name), aurora.Cyan(version)))
 	var dep Dependency
 
 	res, err := http.Get(endpoint)
@@ -50,10 +34,6 @@ func FetchDependencies(name, version string) (map[string]string, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	cacheMutex.Lock()
-	cache[name+version] = dep.Dependencies
-	cacheMutex.Unlock()
 
 	return dep.Dependencies, nil
 }

@@ -2,22 +2,10 @@ package graph
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/harshalslimaye/ivar/internal/registry"
-	"github.com/harshalslimaye/ivar/internal/vercon"
 )
-
-var vc vercon.Vercon = *vercon.NewVercon()
-
-type Package struct {
-	Name    string
-	Version string
-}
-
-type Node struct {
-	Package      *Package
-	Dependencies map[string]*Node
-}
 
 type Graph struct {
 	Nodes map[string]*Node
@@ -31,44 +19,20 @@ func NewGraph() *Graph {
 
 func NewDependencyGraph(deps map[string]string) *Graph {
 	gh := NewGraph()
+	var wg sync.WaitGroup
 
 	for name, version := range deps {
-		pkg := NewPackage(name, version)
-		gh.AddDependencies(pkg)
+		wg.Add(1)
+		go func(n, v string) {
+			defer wg.Done()
+			pkg := NewPackage(n, v)
+			gh.AddDependencies(pkg)
+		}(name, version)
 	}
+
+	wg.Wait()
 
 	return gh
-}
-
-func NewPackage(packageName, packageVersion string) *Package {
-	return &Package{
-		Name:    packageName,
-		Version: vc.GetVersion(packageName, packageVersion),
-	}
-}
-
-func NewNode(pkg *Package) *Node {
-	return &Node{
-		Package:      pkg,
-		Dependencies: make(map[string]*Node),
-	}
-}
-
-func (n *Node) AddDependencies(deps map[string]string) {
-	for depName, depVersion := range deps {
-		pkg := NewPackage(depName, depVersion)
-		node := NewNode(pkg)
-		n.AddDependency(node)
-
-		dependencies, err := registry.FetchDependencies(pkg.Name, pkg.Version)
-		if err != nil {
-			fmt.Println(err)
-		}
-
-		if len(dependencies) > 0 {
-			node.AddDependencies(dependencies)
-		}
-	}
 }
 
 func (g *Graph) AddDependencies(pkg *Package) *Node {
@@ -88,14 +52,6 @@ func (g *Graph) AddDependencies(pkg *Package) *Node {
 	}
 
 	return node
-}
-
-func (n *Node) AddDependency(node *Node) {
-	n.Dependencies[node.Package.Name] = node
-}
-
-func (n *Node) RemoveDependency(packageName string) {
-	delete(n.Dependencies, packageName)
 }
 
 func (g *Graph) AddNode(pkg *Package) *Node {

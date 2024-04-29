@@ -3,25 +3,25 @@ package vercon
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"sort"
+	"sync"
 
 	"github.com/Masterminds/semver/v3"
 )
 
-type Vercon struct {
-	cache map[string][]*semver.Version
+var cache = struct {
+	sync.RWMutex
+	data map[string][]*semver.Version
+}{data: make(map[string][]*semver.Version)}
+
+func GetVersion(name string, version string) string {
+	return FindExactVersion(version, GetAvailableVersions(name))
 }
 
-func (v *Vercon) GetVersion(name string, version string) string {
-	return v.FindExactVersion(version, v.GetAvailableVersions(name))
-}
-
-func (v *Vercon) FindExactVersion(constraint string, versions []*semver.Version) string {
+func FindExactVersion(constraint string, versions []*semver.Version) string {
 	c, err := semver.NewConstraint(constraint)
 	if err != nil {
-		// Handle invalid constraint
 		fmt.Printf("Error parsing version constraint %s: %v\n", constraint, err)
 		return ""
 	}
@@ -45,46 +45,52 @@ func (v *Vercon) FindExactVersion(constraint string, versions []*semver.Version)
 	return compatibleVersions[len(compatibleVersions)-1].String()
 }
 
-func (v *Vercon) GetAvailableVersions(name string) []*semver.Version {
-	value, ok := v.cache[name]
+func GetAvailableVersions(name string) []*semver.Version {
+	cache.RLock()
+	vers, found := cache.data[name]
+	cache.RUnlock()
 
-	if ok {
-		return value
-	} else {
-		url := fmt.Sprintf("https://registry.npmjs.org/%s", name)
-		response, err := http.Get(url)
-		if err != nil {
-			fmt.Println("Error making HTTP request:", err)
-		}
-		defer response.Body.Close()
-
-		// Read the response body
-		body, err := io.ReadAll(response.Body)
-		if err != nil {
-			fmt.Println("Error reading response body:", err)
-		}
-
-		// Parse the JSON response
-		var data map[string]interface{}
-		err = json.Unmarshal(body, &data)
-		if err != nil {
-			fmt.Println("Error parsing JSON:", err)
-		}
-
-		// Extract keys of the "versions" array
-		versions := data["versions"].(map[string]interface{})
-		keys := make([]*semver.Version, 0, len(versions))
-		for key := range versions {
-			keys = append(keys, semver.MustParse(key))
-		}
-		v.cache[name] = keys
-
-		return keys
+	if found {
+		return vers
 	}
-}
 
-func NewVercon() *Vercon {
-	return &Vercon{
-		cache: make(map[string][]*semver.Version),
+	url := fmt.Sprintf("https://registry.npmjs.org/%s", name)
+	response, err := http.Get(url)
+	if err != nil {
+		fmt.Println("Error making HTTP request:", err)
+		return nil
 	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		fmt.Printf("HTTP request failed with status code: %d\n", response.StatusCode)
+		return nil
+	}
+
+	var data struct {
+		Versions map[string]struct{} `json:"versions"`
+	}
+
+	err = json.NewDecoder(response.Body).Decode(&data)
+	if err != nil {
+		fmt.Println("Error decoding JSON:", err)
+		return nil
+	}
+
+	// Extract version keys
+	var versions []*semver.Version
+	for key := range data.Versions {
+		v, err := semver.NewVersion(key)
+		if err != nil {
+			fmt.Printf("Error parsing version %s: %v\n", key, err)
+			continue
+		}
+		versions = append(versions, v)
+	}
+
+	cache.Lock()
+	cache.data[name] = versions
+	cache.Unlock()
+
+	return versions
 }
