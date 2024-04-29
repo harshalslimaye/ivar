@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 
+	cmdShim "github.com/harshalslimaye/ivar/internal/cmd-shim"
 	"github.com/harshalslimaye/ivar/internal/graph"
 	"github.com/harshalslimaye/ivar/internal/helper"
 	"github.com/harshalslimaye/ivar/internal/packagejson"
@@ -44,6 +45,7 @@ func WalkNode(parent *graph.Node, node *graph.Node, visited map[string]string) {
 
 			// Process the package here (e.g., download and install)
 			DownloadDependency(node.Package.Name, node.Package.Version, dir)
+			createSymbolicLink(node, dir)
 		}
 	} else {
 		dir := filepath.Join("node_modules", node.Package.Name)
@@ -52,6 +54,7 @@ func WalkNode(parent *graph.Node, node *graph.Node, visited map[string]string) {
 
 		// Process the package here (e.g., download and install)
 		DownloadDependency(node.Package.Name, node.Package.Version, dir)
+		createSymbolicLink(node, dir)
 
 		// Recursively walk through dependencies
 		for _, dependencyNode := range node.Dependencies {
@@ -80,4 +83,17 @@ func DownloadDependency(name string, version string, downloadDir string) error {
 	}
 
 	return nil
+}
+
+func createSymbolicLink(node *graph.Node, dir string) {
+
+	if len(node.Bin) > 0 {
+		for name, path := range node.Bin {
+			source := filepath.Join(dir, path)
+			target := filepath.Join("node_modules", ".bin", name)
+
+			cmdShim.CmdShim(source, target)
+		}
+	}
+
 }

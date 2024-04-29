@@ -12,9 +12,10 @@ type Dependency struct {
 	Name         string
 	Version      string
 	Dependencies map[string]string
+	Bin          map[string]string
 }
 
-func FetchDependencies(name, version string) (map[string]string, error) {
+func FetchDependencies(name, version string) (*Dependency, error) {
 	endpoint := fmt.Sprintf("https://registry.npmjs.org/%s/%s", name, version)
 	fmt.Println(aurora.Sprintf(aurora.Cyan("Fetching dependencies for %s@%s"), aurora.Green(name), aurora.Cyan(version)))
 	var dep Dependency
@@ -35,5 +36,5 @@ func FetchDependencies(name, version string) (map[string]string, error) {
 		return nil, err
 	}
 
-	return dep.Dependencies, nil
+	return &dep, nil
 }
