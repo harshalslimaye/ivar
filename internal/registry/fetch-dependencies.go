@@ -17,7 +17,7 @@ type Dependency struct {
 
 func FetchDependencies(name, version string) (*Dependency, error) {
 	endpoint := fmt.Sprintf("https://registry.npmjs.org/%s/%s", name, version)
-	fmt.Println(aurora.Sprintf(aurora.Cyan("Fetching dependencies for %s@%s"), aurora.Green(name), aurora.Cyan(version)))
+
 	var dep Dependency
 
 	res, err := http.Get(endpoint)

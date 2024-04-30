@@ -1,26 +1,35 @@
 package installcmd
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	cmdShim "github.com/harshalslimaye/ivar/internal/cmd-shim"
 	"github.com/harshalslimaye/ivar/internal/graph"
 	"github.com/harshalslimaye/ivar/internal/helper"
 	"github.com/harshalslimaye/ivar/internal/packagejson"
 	"github.com/harshalslimaye/ivar/internal/tarball"
+	"github.com/logrusorgru/aurora"
 	"github.com/spf13/cobra"
 )
 
-func InstallCmd() *cobra.Command {
+func InstallCmd(t *time.Time) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "install",
 		Short: "This command installs a package along with its dependencies.",
 		Run: func(cmd *cobra.Command, args []string) {
+			fmt.Println(helper.ShowInfo("[1, 4]", "📄", "Reading package.json"))
 			pkgjson := packagejson.ReadPackageJson()
+			fmt.Println(helper.ShowInfo("[2, 4]", "🔗", "Building Dependency Graph"))
+			fmt.Println(helper.ShowInfo("[3, 4]", "🔄", "Resolving Dependencies"))
 			gh := graph.NewDependencyGraph(pkgjson.Dependencies)
-
+			fmt.Println(helper.ShowInfo("[4, 4]", "📦", "Fetching packages"))
 			WalkGraph(gh)
+			fmt.Println(fmt.Sprintf("%s %s %s", "🔥", aurora.Green("success"), "Installation complete!"))
+			duration := time.Since(*t).Round(time.Millisecond * 10)
+			fmt.Println(fmt.Sprintf("%s %s %s", "⌛", aurora.Cyan("info"), "Done in "+duration.String()))
 		},
 	}
 

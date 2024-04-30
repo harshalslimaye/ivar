@@ -9,6 +9,65 @@ import (
 	"strings"
 )
 
+type Params struct {
+	ShTarget     string
+	Target       string
+	LongProg     string
+	ShProg       string
+	ShLongProg   string
+	PwshProg     string
+	PwshLongProg string
+	Prog         string
+	Args         string
+	Variables    string
+	From         string
+	To           string
+}
+
+func NewParams(from, to, prog, args, variables string) *Params {
+	params := Params{
+		ShTarget:     "",
+		Target:       "",
+		LongProg:     "",
+		ShProg:       "",
+		ShLongProg:   "",
+		PwshProg:     "",
+		PwshLongProg: "",
+		Prog:         prog,
+		Args:         args,
+		Variables:    variables,
+		From:         from,
+		To:           to,
+	}
+
+	shTarget, err := filepath.Rel(filepath.Dir(to), from)
+	if err != nil {
+		fmt.Println("Error:", err)
+	}
+
+	params.Target = strings.ReplaceAll(shTarget, "/", "\\")
+	params.ShTarget = strings.ReplaceAll(shTarget, "\\", "/")
+
+	if params.Prog == "" {
+		params.Prog = `"%dp0%\\${target}"`
+		params.ShProg = "\"$basedir/" + shTarget + "\""
+		params.PwshProg = params.ShProg
+		params.Args = ""
+		params.Target = ""
+		params.ShTarget = ""
+	} else {
+		params.LongProg = "%dp0%\\" + params.Prog + ".exe"
+		params.ShLongProg = "\"$basedir/" + params.Prog + "\""
+		params.PwshLongProg = "\"" + "$basedir/" + params.Prog + "$exe" + "\""
+		params.Target = "\"" + "%dp0%\\" + params.Target + "\""
+		params.ShProg = strings.ReplaceAll(params.Prog, "\\", "/")
+		params.PwshProg = "\"" + params.ShProg + "$exe\""
+		params.ShTarget = "\"$basedir/" + params.ShTarget + "\""
+	}
+
+	return &params
+}
+
 var shebangExpr *regexp.Regexp = regexp.MustCompile(`^#!\s*(?:\/usr\/bin\/env\s+(?:-S\s+)?((?:[^ \t=]+=[^ \t=]+\s+)*))?([^ \t]+)(.*)$`)
 
 func CmdShim(from, to string) {
@@ -59,106 +118,48 @@ func writeShim(from, to string) {
 }
 
 func writeShim_(from, to, prog, args, variables string) {
-	fmt.Println(prog)
-	writeCmd(from, to, prog, args, variables)
-	writeSh(from, to, prog, args, variables)
-	writePwSh(from, to, prog, args, variables)
+	params := NewParams(from, to, prog, args, variables)
+	writeCmd(params)
+	writeSh(params)
+	writePwsh(params)
 }
 
-func writePwSh(from, to, prog, args, variables string) {
-	shTarget, err := filepath.Rel(filepath.Dir(to), from)
-	if err != nil {
-		// Handle error if any
-		fmt.Println("Error:", err)
-		return
-	}
-	// longProg := ""
-	target := strings.ReplaceAll(shTarget, "/", "\\")
-	pwshLongProg := ""
-	shLongProg := ""
-	pwshProg := ""
-	shProg := ""
+func writePwsh(params *Params) {
+	fileContent := PwshHeader
 
-	if prog == "" {
-		prog = `"%dp0%\\${target}"`
-		args = ""
-		target = ""
-		shProg = "\"$basedir/" + shTarget + "\""
-		pwshProg = shProg
+	if params.ShLongProg != "" {
+		fileContent += fmt.Sprintf(
+			PwshWithShLong,
+			params.PwshLongProg,
+			params.PwshLongProg,
+			params.Args,
+			params.ShTarget,
+			params.PwshLongProg,
+			params.Args,
+			params.ShTarget,
+			params.PwshProg,
+			params.Args,
+			params.ShTarget,
+			params.PwshProg,
+			params.Args,
+			params.ShTarget,
+		)
 	} else {
-		pwshLongProg = "\"" + "$basedir/" + prog + "$exe" + "\""
-		target = "\"" + "%dp0%\\" + target + "\""
-		shLongProg = "\"$basedir/" + prog + "\""
-		shProg = strings.ReplaceAll(prog, "\\", "/")
-		shTarget = "\"$basedir/" + shTarget + "\""
+		fileContent += fmt.Sprintf(
+			PwshWithoutLong,
+			params.PwshProg,
+			params.Args,
+			params.ShTarget,
+			params.PwshProg,
+			params.Args,
+			params.ShTarget,
+		)
 	}
 
-	pwsh := "#!/usr/bin/env pwsh\n"
-	pwsh = pwsh + "$basedir=Split-Path $MyInvocation.MyCommand.Definition -Parent\n"
-	pwsh = pwsh + "\n"
-	pwsh = pwsh + "$exe=\"\"\n"
-	pwsh = pwsh + "if ($PSVersionTable.PSVersion -lt \"6.0\" -or $IsWindows) {\n"
-	pwsh = pwsh + "  # Fix case when both the Windows and Linux builds of Node\n"
-	pwsh = pwsh + "  # are installed in the same directory\n"
-	pwsh = pwsh + "  $exe=\".exe\"\n"
-	pwsh = pwsh + "}\n"
-
-	if shLongProg != "" {
-		pwsh = pwsh + "$ret=0\n"
-		pwsh = pwsh + "if (Test-Path " + pwshLongProg + ") {\n"
-		pwsh = pwsh + "  # Support pipeline input\n"
-		pwsh = pwsh + "  if ($MyInvocation.ExpectingInput) {\n"
-		pwsh = pwsh + "    $input | & " + pwshLongProg + " " + args + " " + shTarget + " $args\n"
-		pwsh = pwsh + "  } else {\n"
-		pwsh = pwsh + "    & " + pwshLongProg + " " + args + " " + shTarget + " $args\n"
-		pwsh = pwsh + "  }\n"
-		pwsh = pwsh + "  $ret=$LASTEXITCODE\n"
-		pwsh = pwsh + "} else {\n"
-		pwsh = pwsh + "  # Support pipeline input\n"
-		pwsh = pwsh + "  if ($MyInvocation.ExpectingInput) {\n"
-		pwsh = pwsh + "    $input | & " + pwshProg + " " + args + " " + shTarget + " $args\n"
-		pwsh = pwsh + "  } else {\n"
-		pwsh = pwsh + "    & " + pwshProg + " " + args + " " + shTarget + " $args\n"
-		pwsh = pwsh + "  }\n"
-		pwsh = pwsh + "  $ret=$LASTEXITCODE\n"
-		pwsh = pwsh + "}\n"
-		pwsh = pwsh + "exit $ret\n"
-	} else {
-		pwsh = pwsh + "# Support pipeline input\n"
-		pwsh = pwsh + "if ($MyInvocation.ExpectingInput) {\n"
-		pwsh = pwsh + "  $input | & " + pwshProg + " " + args + " " + shTarget + " $args\n"
-		pwsh = pwsh + "} else {\n"
-		pwsh = pwsh + "  & " + pwshProg + " " + args + " " + shTarget + " $args\n"
-		pwsh = pwsh + "}\n"
-		pwsh = pwsh + "exit $LASTEXITCODE\n"
-	}
-	CreateLink(to+".ps1", pwsh)
+	CreateLink(params.To+".ps1", fileContent)
 }
 
-func writeSh(from, to, prog, args, variables string) {
-	shTarget, err := filepath.Rel(filepath.Dir(to), from)
-	if err != nil {
-		// Handle error if any
-		fmt.Println("Error:", err)
-		return
-	}
-	shLongProg := ""
-	shProg := ""
-
-	if err != nil {
-		fmt.Println("Error:", err)
-		return
-	}
-
-	if prog == "" {
-		shTarget = ""
-		shProg = "\"$basedir/" + shTarget + "\""
-	} else {
-		shLongProg = "\"$basedir/" + prog + "\""
-		shTarget = "\"$basedir/" + shTarget + "\""
-		shProg = strings.ReplaceAll(prog, "\\", "/")
-	}
-
+func writeSh(params *Params) {
 	sh := "#!/bin/sh\n"
 
 	sh = sh + "basedir=$(dirname \"$(echo \"$0\" | sed -e 's,\\\\,/,g')\")\n"
@@ -172,37 +173,20 @@ func writeSh(from, to, prog, args, variables string) {
 	sh = sh + "esac\n"
 	sh = sh + "\n"
 
-	if shLongProg != "" {
-		sh = sh + "if [ -x " + shLongProg + " ]; then\n"
-		sh = sh + "  exec " + variables + shLongProg + " " + args + " " + shTarget + "\"$@\"\n"
+	if params.ShLongProg != "" {
+		sh = sh + "if [ -x " + params.ShLongProg + " ]; then\n"
+		sh = sh + "  exec " + params.Variables + params.ShLongProg + " " + params.Args + " " + params.ShTarget + " \"$@\"\n"
 		sh = sh + "else \n"
-		sh = sh + "  exec " + variables + shProg + " " + args + " " + shTarget + "\"$@\"\n"
+		sh = sh + "  exec " + params.Variables + params.ShProg + " " + params.Args + " " + params.ShTarget + " \"$@\"\n"
 		sh = sh + "fi\n"
 	} else {
-		sh = sh + "exec " + shProg + " " + args + " " + shTarget + " \"$@\"\n"
+		sh = sh + "exec " + params.ShProg + " " + params.Args + " " + params.ShTarget + " \"$@\"\n"
 	}
-	CreateLink(to, sh)
+	CreateLink(params.To, sh)
 }
 
-func writeCmd(from, to, prog, args, variables string) {
-	shTarget, err := filepath.Rel(filepath.Dir(to), from)
-	if err != nil {
-		// Handle error if any
-		fmt.Println("Error:", err)
-		return
-	}
-	longProg := ""
-	target := strings.ReplaceAll(shTarget, "/", "\\")
-	progName := regexp.MustCompile(`(^")|("$)`).ReplaceAllString(prog, "")
-
-	if prog == "" {
-		prog = `"%dp0%\\${target}"`
-		args = ""
-		target = ""
-	} else {
-		longProg = "%dp0%\\" + prog + ".exe"
-		target = "\"" + "%dp0%\\" + target + "\""
-	}
+func writeCmd(params *Params) {
+	progName := regexp.MustCompile(`(^")|("$)`).ReplaceAllString(params.Prog, "")
 
 	head := "@ECHO off\r\n" +
 		"GOTO start\r\n" +
@@ -214,25 +198,25 @@ func writeCmd(from, to, prog, args, variables string) {
 		"CALL :find_dp0\r\n"
 
 	var cmd string
-	if longProg != "" {
-		args = strings.TrimSpace(args)
-		variablesBatch := ConvertToSetCommands(variables)
+	if params.LongProg != "" {
+		args := strings.TrimSpace(params.Args)
+		variablesBatch := ConvertToSetCommands(params.Variables)
 
 		cmd = head + variablesBatch
 		cmd = cmd + "\r\n"
-		cmd = cmd + "IF EXIST " + "\"" + longProg + "\"" + " (\r\n"
-		cmd = cmd + "\tSET \"_prog=" + longProg + "\"\r\n"
+		cmd = cmd + "IF EXIST " + "\"" + params.LongProg + "\"" + " (\r\n"
+		cmd = cmd + "\tSET \"_prog=" + params.LongProg + "\"\r\n"
 		cmd = cmd + ") ELSE (\r\n"
 		cmd = cmd + "\tSET \"_prog=" + progName + "\"\r\n"
 		cmd = cmd + "\tSET PATHEXT=%PATHEXT:;.JS;=;%\r\n"
 		cmd = cmd + ")\r\n"
 		cmd = cmd + "\r\n"
 		cmd = cmd + "endLocal & goto #_undefined_# 2>NUL || title %COMSPEC% & "
-		cmd = cmd + "\"%_prog%\" " + args + " " + target + " " + "%*\r\n"
+		cmd = cmd + "\"%_prog%\" " + args + " " + params.Target + " " + "%*\r\n"
 	} else {
-		cmd = head + prog + " " + args + " " + target + " %*\r\n"
+		cmd = head + params.Prog + " " + params.Args + " " + params.Target + " %*\r\n"
 	}
-	CreateLink(to+".cmd", cmd)
+	CreateLink(params.To+".cmd", cmd)
 }
 
 func CreateLink(to string, content string) {
