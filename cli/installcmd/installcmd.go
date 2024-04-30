@@ -15,20 +15,22 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func InstallCmd(t *time.Time) *cobra.Command {
+func InstallCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "install",
 		Short: "This command installs a package along with its dependencies.",
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Println(helper.ShowInfo("[1, 4]", "📄", "Reading package.json"))
+			t := time.Now()
+			fmt.Println(helper.ShowInfo("📄", "Reading package.json"))
 			pkgjson := packagejson.ReadPackageJson()
-			fmt.Println(helper.ShowInfo("[2, 4]", "🔗", "Building Dependency Graph"))
-			fmt.Println(helper.ShowInfo("[3, 4]", "🔄", "Resolving Dependencies"))
+
+			fmt.Println(helper.ShowInfo("🔄", "Resolving Dependencies"))
 			gh := graph.NewDependencyGraph(pkgjson.Dependencies)
-			fmt.Println(helper.ShowInfo("[4, 4]", "📦", "Fetching packages"))
+
+			fmt.Println(helper.ShowInfo("📦", "Fetching packages"))
 			WalkGraph(gh)
 			fmt.Println(fmt.Sprintf("%s %s %s", "🔥", aurora.Green("success"), "Installation complete!"))
-			duration := time.Since(*t).Round(time.Millisecond * 10)
+			duration := time.Since(t).Round(time.Millisecond * 10)
 			fmt.Println(fmt.Sprintf("%s %s %s", "⌛", aurora.Cyan("info"), "Done in "+duration.String()))
 		},
 	}

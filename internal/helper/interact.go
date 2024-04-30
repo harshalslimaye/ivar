@@ -28,6 +28,6 @@ func AskQuestion(message string, defaultValue string) string {
 	return value
 }
 
-func ShowInfo(step, emoji, message string) string {
-	return fmt.Sprintf("%s %s %s...", emoji, aurora.Cyan(step), message)
+func ShowInfo(emoji, message string) string {
+	return fmt.Sprintf("%s %s...", emoji, message)
 }
