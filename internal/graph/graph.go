@@ -20,13 +20,16 @@ func NewGraph() *Graph {
 func NewDependencyGraph(deps map[string]string) *Graph {
 	gh := NewGraph()
 	var wg sync.WaitGroup
+	var mt sync.Mutex
 
 	for name, version := range deps {
 		wg.Add(1)
 		go func(n, v string) {
 			defer wg.Done()
 			pkg := NewPackage(n, v)
+			mt.Lock()
 			gh.AddDependencies(pkg)
+			mt.Unlock()
 		}(name, version)
 	}
 

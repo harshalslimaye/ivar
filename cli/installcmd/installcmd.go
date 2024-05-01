@@ -25,7 +25,7 @@ func InstallCmd() *cobra.Command {
 			pkgjson := packagejson.ReadPackageJson()
 
 			fmt.Println(helper.ShowInfo("🔄", "Resolving Dependencies"))
-			gh := graph.NewDependencyGraph(pkgjson.Dependencies)
+			gh := graph.NewDependencyGraph(pkgjson.GetProjectDependencies())
 
 			fmt.Println(helper.ShowInfo("📦", "Fetching packages"))
 			WalkGraph(gh)
@@ -57,6 +57,11 @@ func WalkNode(parent *graph.Node, node *graph.Node, visited map[string]string) {
 			// Process the package here (e.g., download and install)
 			DownloadDependency(node.Package.Name, node.Package.Version, dir)
 			createSymbolicLink(node, dir)
+
+			// Recursively walk through dependencies
+			for _, dependencyNode := range node.Dependencies {
+				WalkNode(node, dependencyNode, visited)
+			}
 		}
 	} else {
 		dir := filepath.Join("node_modules", node.Package.Name)

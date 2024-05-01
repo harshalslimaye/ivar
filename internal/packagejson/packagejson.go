@@ -23,7 +23,7 @@ type PackageJson struct {
 	Author          string
 }
 
-func (pkg PackageJson) ToInitJson() ([]byte, error) {
+func (pkg *PackageJson) ToInitJson() ([]byte, error) {
 	jsonMap := orderedmap.New()
 	jsonMap.Set("name", pkg.Name)
 	jsonMap.Set("version", pkg.Version)
@@ -41,7 +41,7 @@ func (pkg PackageJson) ToInitJson() ([]byte, error) {
 	return json.MarshalIndent(jsonMap, "", "  ")
 }
 
-func (pkg PackageJson) PrintInitJson() {
+func (pkg *PackageJson) PrintInitJson() {
 	jsonBytes, err := pkg.ToInitJson()
 	if err != nil {
 		fmt.Print("Error converting to JSON:", err)
@@ -51,7 +51,7 @@ func (pkg PackageJson) PrintInitJson() {
 	fmt.Println(string(jsonBytes))
 }
 
-func (pkg PackageJson) WriteToFile(filename string) error {
+func (pkg *PackageJson) WriteToFile(filename string) error {
 	jsonData, err := pkg.ToInitJson()
 	if err != nil {
 		return err
@@ -84,6 +84,24 @@ func GetNewPackageJson(hasDefault bool) *PackageJson {
 	}
 
 	return &pkgjson
+}
+
+func (p *PackageJson) GetProjectDependencies() map[string]string {
+	merged := make(map[string]string)
+
+	// Copy all key-value pairs from m1 to merged map
+	for k, v := range p.Dependencies {
+		merged[k] = v
+	}
+
+	for k, v := range p.DevDependencies {
+		if _, exists := merged[k]; exists {
+			continue
+		}
+		merged[k] = v
+	}
+
+	return merged
 }
 
 func Exists() bool {
