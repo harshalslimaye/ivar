@@ -11,6 +11,7 @@ type Node struct {
 	Package      *Package
 	Dependencies map[string]*Node
 	Bin          map[string]string
+	mutex        sync.Mutex
 }
 
 func NewNode(pkg *Package) *Node {
@@ -23,7 +24,6 @@ func NewNode(pkg *Package) *Node {
 
 func (n *Node) AddDependencies(deps map[string]string) {
 	var wg sync.WaitGroup
-	var mt sync.Mutex
 
 	for depName, depVersion := range deps {
 		wg.Add(1)
@@ -34,9 +34,9 @@ func (n *Node) AddDependencies(deps map[string]string) {
 			pkg := NewPackage(name, version)
 			node := NewNode(pkg)
 
-			mt.Lock()
+			n.Lock()
 			n.AddDependency(node)
-			mt.Unlock()
+			n.Unlock()
 
 			dep, err := registry.FetchDependencies(pkg.Name, pkg.Version)
 			if err != nil {
@@ -61,4 +61,12 @@ func (n *Node) SetBin(bin map[string]string) {
 	if len(bin) > 0 {
 		n.Bin = bin
 	}
+}
+
+func (n *Node) Lock() {
+	n.mutex.Lock()
+}
+
+func (n *Node) Unlock() {
+	n.mutex.Unlock()
 }
