@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	cmdShim "github.com/harshalslimaye/ivar/internal/cmd-shim"
@@ -44,16 +45,38 @@ func WalkGraph(gh *graph.Graph) {
 	}
 }
 
-func WalkNode(parent *graph.Node, node *graph.Node, visited map[string]string) {
+func WalkNode(parent *graph.Node, node *graph.Node, visited *sync.Map) {
 	if visited == nil {
-		visited = make(map[string]string) // keeps track of packages in root node_modules
+		visited = &sync.Map{} // keeps track of packages in root node_modules
 	}
+	node.Lock()
+	version, exists := visited.Load(node.Package.Name)
+	node.Unlock()
 
 	// Check if the package has already been visited
-	if _, exists := visited[node.Package.Name]; exists {
-		if visited[node.Package.Name] != node.Package.Version {
+	if exists {
+		if version != node.Package.Version {
 			dir := filepath.Join("node_modules", parent.Package.Name, "node_modules", node.Package.Name)
 
+			go func() {
+				// Process the package here (e.g., download and install)
+				DownloadDependency(node.Package.Name, node.Package.Version, dir)
+				createSymbolicLink(node, dir)
+
+				// Recursively walk through dependencies
+				for _, dependencyNode := range node.Dependencies {
+					WalkNode(node, dependencyNode, visited)
+				}
+			}()
+		}
+	} else {
+		dir := filepath.Join("node_modules", node.Package.Name)
+		// Mark the package as visited
+		node.Lock()
+		visited.Store(node.Package.Name, node.Package.Version)
+		node.Unlock()
+
+		go func() {
 			// Process the package here (e.g., download and install)
 			DownloadDependency(node.Package.Name, node.Package.Version, dir)
 			createSymbolicLink(node, dir)
@@ -62,20 +85,7 @@ func WalkNode(parent *graph.Node, node *graph.Node, visited map[string]string) {
 			for _, dependencyNode := range node.Dependencies {
 				WalkNode(node, dependencyNode, visited)
 			}
-		}
-	} else {
-		dir := filepath.Join("node_modules", node.Package.Name)
-		// Mark the package as visited
-		visited[node.Package.Name] = node.Package.Version
-
-		// Process the package here (e.g., download and install)
-		DownloadDependency(node.Package.Name, node.Package.Version, dir)
-		createSymbolicLink(node, dir)
-
-		// Recursively walk through dependencies
-		for _, dependencyNode := range node.Dependencies {
-			WalkNode(node, dependencyNode, visited)
-		}
+		}()
 	}
 }
 func DownloadDependency(name string, version string, downloadDir string) error {
