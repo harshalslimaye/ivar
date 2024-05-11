@@ -45,14 +45,14 @@ func (g *Graph) AddDependencies(pkg *Package) *Node {
 
 	node := g.AddNode(pkg)
 
-	dep, err := registry.FetchDependencies(pkg.Name, pkg.Version)
+	parser, err := registry.FetchDependencies(pkg.Name, pkg.Version)
 	if err != nil {
 		fmt.Println(err)
 	}
 
-	node.SetBin(dep.Bin)
-	if len(dep.Dependencies) > 0 {
-		node.AddDependencies(dep.Dependencies)
+	node.SetMetadata(parser)
+	if parser.HasDependencies() {
+		node.AddDependencies(parser.GetDependencies())
 	}
 
 	return node

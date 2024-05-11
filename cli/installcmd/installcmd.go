@@ -40,63 +40,70 @@ func InstallCmd() *cobra.Command {
 }
 
 func WalkGraph(gh *graph.Graph) {
+	var visited sync.Map
+	var wg sync.WaitGroup
+
 	for _, node := range gh.Nodes {
-		WalkNode(nil, node, nil)
+		WalkNode(nil, node, &visited, &wg)
 	}
+
+	wg.Wait()
 }
 
-func WalkNode(parent *graph.Node, node *graph.Node, visited *sync.Map) {
-	if visited == nil {
-		visited = &sync.Map{} // keeps track of packages in root node_modules
-	}
-	node.Lock()
-	version, exists := visited.Load(node.Package.Name)
-	node.Unlock()
-
+func WalkNode(parent *graph.Node, node *graph.Node, visited *sync.Map, wg *sync.WaitGroup) {
+	wg.Add(1)
 	// Check if the package has already been visited
-	if exists {
-		if version != node.Package.Version {
-			dir := filepath.Join("node_modules", parent.Package.Name, "node_modules", node.Package.Name)
+	go func() {
+		defer wg.Done()
 
-			go func() {
+		version, exists := visited.Load(node.Package.Name)
+
+		if exists {
+			if version != node.Package.Version {
+				dir := filepath.Join("node_modules", parent.Package.Name, "node_modules", node.Package.Name)
+
 				// Process the package here (e.g., download and install)
-				DownloadDependency(node.Package.Name, node.Package.Version, dir)
-				createSymbolicLink(node, dir)
+				if err := DownloadDependency(node, dir); err != nil {
+					fmt.Printf("Unable to download %s@%s from %s\n", node.Name(), node.Version(), node.DownloadPath)
+					fmt.Println(err)
+				} else {
+					createSymbolicLink(node, dir)
+				}
 
 				// Recursively walk through dependencies
 				for _, dependencyNode := range node.Dependencies {
-					WalkNode(node, dependencyNode, visited)
+					WalkNode(node, dependencyNode, visited, wg)
 				}
-			}()
-		}
-	} else {
-		dir := filepath.Join("node_modules", node.Package.Name)
-		// Mark the package as visited
-		node.Lock()
-		visited.Store(node.Package.Name, node.Package.Version)
-		node.Unlock()
+			}
+		} else {
+			dir := filepath.Join("node_modules", node.Package.Name)
+			// Mark the package as visited
+			visited.Store(node.Package.Name, node.Package.Version)
 
-		go func() {
 			// Process the package here (e.g., download and install)
-			DownloadDependency(node.Package.Name, node.Package.Version, dir)
-			createSymbolicLink(node, dir)
+			if err := DownloadDependency(node, dir); err != nil {
+				fmt.Printf("Unable to download %s@%s from %s\n", node.Name(), node.Version(), node.DownloadPath)
+				fmt.Println(err)
+			} else {
+				createSymbolicLink(node, dir)
+			}
 
 			// Recursively walk through dependencies
 			for _, dependencyNode := range node.Dependencies {
-				WalkNode(node, dependencyNode, visited)
+				WalkNode(node, dependencyNode, visited, wg)
 			}
-		}()
-	}
+		}
+	}()
 }
-func DownloadDependency(name string, version string, downloadDir string) error {
-	sourcePath := filepath.Join(downloadDir, name+"-"+version+".tgz")
-	targetPath := helper.GetCurrentDirPath() + helper.GetPathSeparator() + downloadDir
+func DownloadDependency(node *graph.Node, downloadDir string) error {
+	sourcePath := filepath.Join(downloadDir, node.Name()+"-"+node.Version()+".tgz")
+	targetPath := filepath.Join(helper.GetCurrentDirPath(), helper.GetPathSeparator(), downloadDir)
 
 	if err := os.MkdirAll(downloadDir, 0755); err != nil {
 		return err
 	}
 
-	if err := tarball.DownloadTarball(name, version, downloadDir); err != nil {
+	if err := tarball.DownloadTarball(node, downloadDir); err != nil {
 		return err
 	}
 

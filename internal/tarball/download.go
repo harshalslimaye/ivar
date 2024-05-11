@@ -6,19 +6,22 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+
+	"github.com/harshalslimaye/ivar/internal/graph"
 )
 
 // Use named return values for better readability and error handling
-func DownloadTarball(name string, version string, path string) (err error) {
-	url := fmt.Sprintf("https://registry.npmjs.org/%s/-/%s-%s.tgz", name, name, version)
-
-	res, err := http.Get(url)
+func DownloadTarball(node *graph.Node, path string) (err error) {
+	if node.Name() == "@babel/parser" {
+		fmt.Println(node.DownloadPath)
+	}
+	res, err := http.Get(node.DownloadPath)
 	if err != nil {
 		return err
 	}
 	defer res.Body.Close()
 
-	out, err := os.Create(filepath.Join(path, fmt.Sprintf("%s-%s.tgz", name, version)))
+	out, err := os.Create(filepath.Join(path, fmt.Sprintf("%s-%s.tgz", node.Name(), node.Version())))
 	if err != nil {
 		return err
 	}

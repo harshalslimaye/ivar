@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/harshalslimaye/ivar/internal/jsonparser"
 	"github.com/harshalslimaye/ivar/internal/registry"
 )
 
@@ -11,6 +12,7 @@ type Node struct {
 	Package      *Package
 	Dependencies map[string]*Node
 	Bin          map[string]string
+	DownloadPath string
 	mutex        sync.Mutex
 }
 
@@ -38,14 +40,15 @@ func (n *Node) AddDependencies(deps map[string]string) {
 			n.AddDependency(node)
 			n.Unlock()
 
-			dep, err := registry.FetchDependencies(pkg.Name, pkg.Version)
+			parser, err := registry.FetchDependencies(pkg.Name, pkg.Version)
 			if err != nil {
+				fmt.Printf("Failed to download %s@%s: \n", pkg.Name, pkg.Version)
 				fmt.Println(err)
 			}
 
-			node.SetBin(dep.Bin)
-			if len(dep.Dependencies) > 0 {
-				node.AddDependencies(dep.Dependencies)
+			node.SetMetadata(parser)
+			if len(parser.GetDependencies()) > 0 {
+				node.AddDependencies(parser.GetDependencies())
 			}
 		}(depName, depVersion)
 	}
@@ -55,6 +58,11 @@ func (n *Node) AddDependencies(deps map[string]string) {
 
 func (n *Node) AddDependency(node *Node) {
 	n.Dependencies[node.Package.Name] = node
+}
+
+func (n *Node) SetMetadata(parser *jsonparser.JsonParser) {
+	n.SetBin(parser.GetBin())
+	n.DownloadPath = parser.GetDownloadPath()
 }
 
 func (n *Node) SetBin(bin map[string]string) {
@@ -69,4 +77,12 @@ func (n *Node) Lock() {
 
 func (n *Node) Unlock() {
 	n.mutex.Unlock()
+}
+
+func (n *Node) Name() string {
+	return n.Package.Name
+}
+
+func (n *Node) Version() string {
+	return n.Package.Name
 }
