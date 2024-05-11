@@ -2,6 +2,8 @@ package graph
 
 import (
 	"fmt"
+	"net/url"
+	"path"
 	"sync"
 
 	"github.com/harshalslimaye/ivar/internal/jsonparser"
@@ -13,6 +15,7 @@ type Node struct {
 	Dependencies map[string]*Node
 	Bin          map[string]string
 	DownloadPath string
+	FileName     string
 	mutex        sync.Mutex
 }
 
@@ -61,8 +64,21 @@ func (n *Node) AddDependency(node *Node) {
 }
 
 func (n *Node) SetMetadata(parser *jsonparser.JsonParser) {
-	n.SetBin(parser.GetBin())
 	n.DownloadPath = parser.GetDownloadPath()
+	n.SetTarName(n.DownloadPath)
+	n.SetBin(parser.GetBin())
+}
+
+func (n *Node) SetTarName(urlString string) {
+	// Parse the URL
+	parsedURL, err := url.Parse(urlString)
+	if err != nil {
+		fmt.Println("Error parsing URL:", err)
+		return
+	}
+
+	// Get the base name of the path
+	n.FileName = path.Base(parsedURL.Path)
 }
 
 func (n *Node) SetBin(bin map[string]string) {
@@ -84,5 +100,5 @@ func (n *Node) Name() string {
 }
 
 func (n *Node) Version() string {
-	return n.Package.Name
+	return n.Package.Version
 }

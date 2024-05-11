@@ -1,8 +1,6 @@
 package jsonparser
 
 import (
-	"fmt"
-
 	"github.com/valyala/fastjson"
 )
 
@@ -71,10 +69,6 @@ func (jp *JsonParser) GetValue(key string) string {
 
 func (jp *JsonParser) GetDownloadPath() string {
 	dist := jp.GetObject("dist")
-
-	if jp.GetValue("name") == "express" || jp.GetValue("name") == "@babel/parser" {
-		fmt.Println(dist)
-	}
 
 	if value, exists := dist["tarball"]; exists {
 		return value

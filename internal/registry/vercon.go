@@ -1,4 +1,4 @@
-package vercon
+package registry
 
 import (
 	"encoding/json"
@@ -10,10 +10,7 @@ import (
 	"github.com/Masterminds/semver/v3"
 )
 
-var cache = struct {
-	sync.RWMutex
-	data map[string][]*semver.Version
-}{data: make(map[string][]*semver.Version)}
+var cache sync.Map
 
 func GetVersion(name string, version string) string {
 	return FindExactVersion(version, GetAvailableVersions(name))
@@ -46,14 +43,6 @@ func FindExactVersion(constraint string, versions []*semver.Version) string {
 }
 
 func GetAvailableVersions(name string) []*semver.Version {
-	cache.RLock()
-	vers, found := cache.data[name]
-	cache.RUnlock()
-
-	if found {
-		return vers
-	}
-
 	url := fmt.Sprintf("https://registry.npmjs.org/%s", name)
 	response, err := http.Get(url)
 	if err != nil {
@@ -87,10 +76,6 @@ func GetAvailableVersions(name string) []*semver.Version {
 		}
 		versions = append(versions, v)
 	}
-
-	cache.Lock()
-	cache.data[name] = versions
-	cache.Unlock()
 
 	return versions
 }

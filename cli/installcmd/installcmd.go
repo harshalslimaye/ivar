@@ -2,7 +2,6 @@ package installcmd
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"sync"
 	"time"
@@ -64,8 +63,8 @@ func WalkNode(parent *graph.Node, node *graph.Node, visited *sync.Map, wg *sync.
 
 				// Process the package here (e.g., download and install)
 				if err := DownloadDependency(node, dir); err != nil {
-					fmt.Printf("Unable to download %s@%s from %s\n", node.Name(), node.Version(), node.DownloadPath)
-					fmt.Println(err)
+					// fmt.Printf("Unable to download %s@%s from %s\n", node.Name(), node.Version(), node.DownloadPath)
+					// fmt.Println(err)
 				} else {
 					createSymbolicLink(node, dir)
 				}
@@ -82,8 +81,8 @@ func WalkNode(parent *graph.Node, node *graph.Node, visited *sync.Map, wg *sync.
 
 			// Process the package here (e.g., download and install)
 			if err := DownloadDependency(node, dir); err != nil {
-				fmt.Printf("Unable to download %s@%s from %s\n", node.Name(), node.Version(), node.DownloadPath)
-				fmt.Println(err)
+				// fmt.Printf("Unable to download %s@%s from %s\n", node.Name(), node.Version(), node.DownloadPath)
+				// fmt.Println(err)
 			} else {
 				createSymbolicLink(node, dir)
 			}
@@ -96,22 +95,10 @@ func WalkNode(parent *graph.Node, node *graph.Node, visited *sync.Map, wg *sync.
 	}()
 }
 func DownloadDependency(node *graph.Node, downloadDir string) error {
-	sourcePath := filepath.Join(downloadDir, node.Name()+"-"+node.Version()+".tgz")
+	sourcePath := filepath.Join(downloadDir, node.FileName)
 	targetPath := filepath.Join(helper.GetCurrentDirPath(), helper.GetPathSeparator(), downloadDir)
 
-	if err := os.MkdirAll(downloadDir, 0755); err != nil {
-		return err
-	}
-
-	if err := tarball.DownloadTarball(node, downloadDir); err != nil {
-		return err
-	}
-
-	if err := tarball.ExtractTarball(sourcePath, targetPath); err != nil {
-		return err
-	}
-
-	if err := tarball.DeleteTarball(sourcePath); err != nil {
+	if err := tarball.DownloadAndExtract(node, downloadDir, sourcePath, targetPath); err != nil {
 		return err
 	}
 
@@ -119,7 +106,6 @@ func DownloadDependency(node *graph.Node, downloadDir string) error {
 }
 
 func createSymbolicLink(node *graph.Node, dir string) {
-
 	if len(node.Bin) > 0 {
 		for name, path := range node.Bin {
 			source := filepath.Join(dir, path)
@@ -128,5 +114,4 @@ func createSymbolicLink(node *graph.Node, dir string) {
 			cmdShim.CmdShim(source, target)
 		}
 	}
-
 }

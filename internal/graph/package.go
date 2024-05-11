@@ -1,6 +1,8 @@
 package graph
 
-import "github.com/harshalslimaye/ivar/internal/vercon"
+import (
+	"github.com/harshalslimaye/ivar/internal/registry"
+)
 
 type Package struct {
 	Name    string
@@ -10,6 +12,6 @@ type Package struct {
 func NewPackage(packageName, packageVersion string) *Package {
 	return &Package{
 		Name:    packageName,
-		Version: vercon.GetVersion(packageName, packageVersion),
+		Version: registry.GetVersion(packageName, packageVersion),
 	}
 }
