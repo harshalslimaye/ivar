@@ -59,41 +59,27 @@ func WalkNode(parent *graph.Node, node *graph.Node, visited *sync.Map, wg *sync.
 		defer wg.Done()
 
 		version, exists := visited.Load(node.Package.Name)
+		var dir string
 
 		if exists {
 			if version != node.Package.Version {
-				dir := filepath.Join("node_modules", parent.Package.Name, "node_modules", node.Package.Name)
-
-				// Process the package here (e.g., download and install)
-				if err := DownloadDependency(node, dir); err != nil {
-					// fmt.Printf("Unable to download %s@%s from %s\n", node.Name(), node.Version(), node.DownloadPath)
-					// fmt.Println(err)
-				} else {
-					createSymbolicLink(node, dir)
-				}
-
-				// Recursively walk through dependencies
-				for _, dependencyNode := range node.Dependencies {
-					WalkNode(node, dependencyNode, visited, wg)
-				}
+				dir = filepath.Join("node_modules", parent.Package.Name, "node_modules", node.Package.Name)
 			}
 		} else {
-			dir := filepath.Join("node_modules", node.Package.Name)
-			// Mark the package as visited
+			dir = filepath.Join("node_modules", node.Package.Name)
 			visited.Store(node.Package.Name, node.Package.Version)
+		}
 
-			// Process the package here (e.g., download and install)
-			if err := DownloadDependency(node, dir); err != nil {
-				// fmt.Printf("Unable to download %s@%s from %s\n", node.Name(), node.Version(), node.DownloadPath)
-				// fmt.Println(err)
-			} else {
-				createSymbolicLink(node, dir)
-			}
+		// Process the package here (e.g., download and install)
+		if err := DownloadDependency(node, dir); err != nil {
+			fmt.Println(err)
+		} else {
+			createSymbolicLink(node, dir)
+		}
 
-			// Recursively walk through dependencies
-			for _, dependencyNode := range node.Dependencies {
-				WalkNode(node, dependencyNode, visited, wg)
-			}
+		// Recursively walk through dependencies
+		for _, dependencyNode := range node.Dependencies {
+			WalkNode(node, dependencyNode, visited, wg)
 		}
 	}()
 }
