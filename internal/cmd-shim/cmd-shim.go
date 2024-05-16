@@ -9,6 +9,46 @@ import (
 	"strings"
 )
 
+var PwshHeader string = `#!/usr/bin/env pwsh
+$basedir=Split-Path $MyInvocation.MyCommand.Definition -Parent
+
+$exe=""
+if ($PSVersionTable.PSVersion -lt "6.0" -or $IsWindows) {
+  # Fix case when both the Windows and Linux builds of Node
+  # are installed in the same directory
+  $exe=".exe"
+}
+`
+var PwshWithShLong string = `$ret=0
+if (Test-Path %s) {
+  # Support pipeline input
+  if ($MyInvocation.ExpectingInput) {
+    $input | & %s %s %s $args
+  } else {
+    & %s %s %s $args
+  }
+  $ret=$LASTEXITCODE
+} else {
+  # Support pipeline input
+  if ($MyInvocation.ExpectingInput) {
+    $input | & %s %s %s $args
+  } else {
+    & %s %s %s $args
+  }
+  $ret=$LASTEXITCODE
+}
+exit $ret
+`
+
+var PwshWithoutLong string = `# Support pipeline input
+if ($MyInvocation.ExpectingInput) {
+  $input | & %s %s %s $args
+} else {
+  & %s %s %s $args
+}
+exit $LASTEXITCODE
+`
+
 type Params struct {
 	ShTarget     string
 	Target       string
@@ -71,16 +111,18 @@ func NewParams(from, to, prog, args, variables string) *Params {
 var shebangExpr *regexp.Regexp = regexp.MustCompile(`^#!\s*(?:\/usr\/bin\/env\s+(?:-S\s+)?((?:[^ \t=]+=[^ \t=]+\s+)*))?([^ \t]+)(.*)$`)
 
 func CmdShim(from, to string) {
-	// rm(to)
-	// rm(to + ".cmd")
-	// rm(to + ".ps1")
+	rm(to)
+	rm(to + ".cmd")
+	rm(to + ".ps1")
 
 	writeShim(from, to)
 }
 
 func rm(to string) {
-	if err := os.Remove(to); err != nil {
-		fmt.Println("Error while deleting existing links: ", err)
+	if _, err := os.Stat(to); os.IsExist(err) {
+		if err := os.Remove(to); err != nil {
+			fmt.Println("Error while deleting existing links: ", err)
+		}
 	}
 }
 
