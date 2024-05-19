@@ -11,7 +11,7 @@ import (
 
 // Use named return values for better readability and error handling
 func DownloadTarball(node *graph.Node, path string) (err error) {
-	res, err := http.Get(node.DownloadPath)
+	res, err := http.Get(node.TarballUrl)
 	if err != nil {
 		return err
 	}

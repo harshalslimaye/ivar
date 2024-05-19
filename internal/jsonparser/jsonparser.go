@@ -67,7 +67,7 @@ func (jp *JsonParser) GetValue(key string) string {
 	return string(jp.value.GetStringBytes(key))
 }
 
-func (jp *JsonParser) GetDownloadPath() string {
+func (jp *JsonParser) TarballUrl() string {
 	dist := jp.GetObject("dist")
 
 	if value, exists := dist["tarball"]; exists {

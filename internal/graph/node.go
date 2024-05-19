@@ -14,8 +14,9 @@ type Node struct {
 	Package      *Package
 	Dependencies map[string]*Node
 	Bin          map[string]string
-	DownloadPath string
+	TarballUrl   string
 	FileName     string
+	DownloadDir  string
 	mutex        sync.Mutex
 }
 
@@ -64,8 +65,8 @@ func (n *Node) AddDependency(node *Node) {
 }
 
 func (n *Node) SetMetadata(parser *jsonparser.JsonParser) {
-	n.DownloadPath = parser.GetDownloadPath()
-	n.SetTarName(n.DownloadPath)
+	n.TarballUrl = parser.TarballUrl()
+	n.SetTarName(n.TarballUrl)
 	n.SetBin(parser.GetBin())
 }
 
