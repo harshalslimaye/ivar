@@ -29,9 +29,9 @@ func InstallCmd() *cobra.Command {
 
 			fmt.Println(helper.ShowInfo("📦", "Fetching packages"))
 			WalkGraph(gh)
-			fmt.Println(fmt.Sprintf("%s %s %s", "🔥", aurora.Green("success"), "Installation complete!"))
+			fmt.Printf("%s %s %s\n", "🔥", aurora.Green("success"), "Installation complete!")
 			duration := time.Since(t).Round(time.Millisecond * 10)
-			fmt.Println(fmt.Sprintf("%s %s %s", "⌛", aurora.Cyan("info"), "Done in "+duration.String()))
+			fmt.Printf("%s %s %s\n", "⌛", aurora.Cyan("info"), "Done in "+duration.String())
 		},
 	}
 
