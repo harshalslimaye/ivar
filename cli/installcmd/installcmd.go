@@ -59,22 +59,21 @@ func WalkNode(parent *graph.Node, node *graph.Node, visited *sync.Map, wg *sync.
 		defer wg.Done()
 
 		version, exists := visited.Load(node.Package.Name)
-		var dir string
 
 		if exists {
 			if version != node.Package.Version {
-				dir = filepath.Join("node_modules", parent.Package.Name, "node_modules", node.Package.Name)
+				node.DownloadDir = filepath.Join("node_modules", parent.Package.Name, "node_modules", node.Package.Name)
 			}
 		} else {
-			dir = filepath.Join("node_modules", node.Package.Name)
+			node.DownloadDir = filepath.Join("node_modules", node.Package.Name)
 			visited.Store(node.Package.Name, node.Package.Version)
 		}
 
 		// Process the package here (e.g., download and install)
-		if err := DownloadDependency(node, dir); err != nil && dir != "" {
+		if err := DownloadDependency(node); err != nil && node.DownloadDir != "" {
 			fmt.Println(aurora.Red(err))
 		} else {
-			createSymbolicLink(node, dir)
+			createSymbolicLink(node)
 		}
 
 		// Recursively walk through dependencies
@@ -83,21 +82,18 @@ func WalkNode(parent *graph.Node, node *graph.Node, visited *sync.Map, wg *sync.
 		}
 	}()
 }
-func DownloadDependency(node *graph.Node, downloadDir string) error {
-	sourcePath := filepath.Join(downloadDir, node.FileName)
-	targetPath := filepath.Join(helper.GetCurrentDirPath(), helper.GetPathSeparator(), downloadDir)
-
-	if err := tarball.DownloadAndExtract(node, downloadDir, sourcePath, targetPath); err != nil {
+func DownloadDependency(node *graph.Node) error {
+	if err := tarball.DownloadAndExtract(node); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func createSymbolicLink(node *graph.Node, dir string) {
+func createSymbolicLink(node *graph.Node) {
 	if len(node.Bin) > 0 {
 		for name, path := range node.Bin {
-			source := filepath.Join(dir, path)
+			source := filepath.Join(node.DownloadDir, path)
 			target := filepath.Join("node_modules", ".bin", name)
 
 			cmdShim.CmdShim(source, target)

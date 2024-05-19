@@ -5,22 +5,23 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/harshalslimaye/ivar/internal/graph"
 	"github.com/mholt/archiver/v3"
 )
 
-func ExtractTarball(sourcePath, targetPath string) error {
-	packagePath := filepath.Join(targetPath, "package")
+func ExtractTarball(n *graph.Node) error {
+	packagePath := filepath.Join(n.TargetPath(), "package")
 
-	if err := os.MkdirAll(targetPath, 0755); err != nil {
-		return fmt.Errorf("unable to create extraction path %s: %s", targetPath, err.Error())
+	if err := os.MkdirAll(n.TargetPath(), 0755); err != nil {
+		return fmt.Errorf("unable to create extraction path %s: %s", n.TargetPath(), err.Error())
 	}
 
-	if err := archiver.Unarchive(sourcePath, targetPath); err != nil {
-		return fmt.Errorf("unable to extract %s: %s", sourcePath, err.Error())
+	if err := archiver.Unarchive(n.SourcePath(), n.TargetPath()); err != nil {
+		return fmt.Errorf("unable to extract %s: %s", n.SourcePath(), err.Error())
 	}
 
-	if err := moveContents(packagePath, targetPath); err != nil {
-		return fmt.Errorf("unable to move %s to %s: %s", packagePath, targetPath, err.Error())
+	if err := moveContents(packagePath, n.TargetPath()); err != nil {
+		return fmt.Errorf("unable to move %s to %s: %s", packagePath, n.TargetPath(), err.Error())
 	}
 
 	if err := os.Remove(packagePath); err != nil {

@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"net/url"
 	"path"
+	"path/filepath"
 	"sync"
 
+	"github.com/harshalslimaye/ivar/internal/helper"
 	"github.com/harshalslimaye/ivar/internal/jsonparser"
 	"github.com/harshalslimaye/ivar/internal/registry"
 )
@@ -102,4 +104,12 @@ func (n *Node) Name() string {
 
 func (n *Node) Version() string {
 	return n.Package.Version
+}
+
+func (n *Node) SourcePath() string {
+	return filepath.Join(n.DownloadDir, n.FileName)
+}
+
+func (n *Node) TargetPath() string {
+	return filepath.Join(helper.GetCurrentDirPath(), n.DownloadDir)
 }
