@@ -71,7 +71,7 @@ func WalkNode(parent *graph.Node, node *graph.Node, visited *sync.Map, wg *sync.
 		}
 
 		// Process the package here (e.g., download and install)
-		if err := DownloadDependency(node, dir); err != nil {
+		if err := DownloadDependency(node, dir); err != nil && dir != "" {
 			fmt.Println(err)
 		} else {
 			createSymbolicLink(node, dir)
