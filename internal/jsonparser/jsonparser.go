@@ -1,7 +1,6 @@
 package jsonparser
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/valyala/fastjson"
@@ -28,7 +27,6 @@ func (jp *JsonParser) GetDependencies() map[string]string {
 func (jp *JsonParser) GetBin() map[string]string {
 	if jp.Exists("bin") {
 		if jp.IsObject("bin") {
-			fmt.Println(jp.GetObject("bin"))
 			return jp.GetObject("bin")
 		} else if jp.IsString("bin") {
 			if jp.IsScoped() {

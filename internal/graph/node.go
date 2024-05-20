@@ -19,6 +19,7 @@ type Node struct {
 	TarballUrl   string
 	FileName     string
 	DownloadDir  string
+	Integrity    string
 	mutex        sync.Mutex
 }
 
@@ -68,19 +69,18 @@ func (n *Node) AddDependency(node *Node) {
 
 func (n *Node) SetMetadata(parser *jsonparser.JsonParser) {
 	n.TarballUrl = parser.TarballUrl()
+	n.Integrity = parser.GetValue("integrity")
 	n.SetTarName(n.TarballUrl)
 	n.SetBin(parser.GetBin())
 }
 
 func (n *Node) SetTarName(urlString string) {
-	// Parse the URL
 	parsedURL, err := url.Parse(urlString)
 	if err != nil {
 		fmt.Println("Error parsing URL:", err)
 		return
 	}
 
-	// Get the base name of the path
 	n.FileName = path.Base(parsedURL.Path)
 }
 

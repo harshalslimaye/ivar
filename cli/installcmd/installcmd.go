@@ -9,6 +9,7 @@ import (
 	cmdShim "github.com/harshalslimaye/ivar/internal/cmd-shim"
 	"github.com/harshalslimaye/ivar/internal/graph"
 	"github.com/harshalslimaye/ivar/internal/helper"
+	"github.com/harshalslimaye/ivar/internal/loader"
 	"github.com/harshalslimaye/ivar/internal/packagejson"
 	"github.com/harshalslimaye/ivar/internal/tarball"
 	"github.com/logrusorgru/aurora"
@@ -41,7 +42,7 @@ func InstallCmd() *cobra.Command {
 func WalkGraph(gh *graph.Graph) {
 	var visited sync.Map
 	var wg sync.WaitGroup
-	defer fmt.Print("\r\033[K")
+	defer loader.Clear()
 
 	for _, node := range gh.Nodes {
 		WalkNode(nil, node, &visited, &wg)
@@ -51,10 +52,9 @@ func WalkGraph(gh *graph.Graph) {
 }
 
 func WalkNode(parent *graph.Node, node *graph.Node, visited *sync.Map, wg *sync.WaitGroup) {
-	showInstalling(node)
+	loader.Show("\r" + "Installing " + node.Name() + "@" + node.Version() + "...")
 
 	wg.Add(1)
-	// Check if the package has already been visited
 	go func() {
 		defer wg.Done()
 
@@ -113,9 +113,4 @@ func createSymbolicLink(node *graph.Node) {
 			cmdShim.CmdShim(source, target)
 		}
 	}
-}
-
-func showInstalling(node *graph.Node) {
-	fmt.Print("\r\033[K")
-	fmt.Print("\r" + "Installing " + node.Name() + "@" + node.Version() + "...")
 }
