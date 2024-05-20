@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/harshalslimaye/ivar/internal/helper"
 	"github.com/iancoleman/orderedmap"
 )
 
@@ -71,11 +70,11 @@ func (pkg *PackageJson) WriteToFile(filename string) error {
 	return nil
 }
 
-func GetNewPackageJson(hasDefault bool) *PackageJson {
+func GetNewPackageJson(hasDefault bool, dirName string) *PackageJson {
 	pkgjson := PackageJson{}
 
 	if hasDefault {
-		pkgjson.Name = helper.GetCurrentDirName()
+		pkgjson.Name = dirName
 		pkgjson.Version = "1.0.0"
 		pkgjson.Description = ""
 		pkgjson.Main = "index.js"
@@ -116,8 +115,8 @@ func Exists() bool {
 	return false
 }
 
-func ReadPackageJson() *PackageJson {
-	content, err := os.ReadFile(helper.GetPackageJsonPath())
+func ReadPackageJson(path string) *PackageJson {
+	content, err := os.ReadFile(path)
 
 	if err != nil {
 		fmt.Println(err)

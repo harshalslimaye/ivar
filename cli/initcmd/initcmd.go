@@ -30,7 +30,7 @@ func InitCmd() *cobra.Command {
 		Use:   "init",
 		Short: "Creates a new package.json file",
 		Run: func(cmd *cobra.Command, args []string) {
-			pkgjson := packagejson.GetNewPackageJson(yesFlag)
+			pkgjson := packagejson.GetNewPackageJson(yesFlag, helper.GetCurrentDirName())
 
 			if packagejson.Exists() {
 				fmt.Println(aurora.Red(initCmdAlreadyExists))

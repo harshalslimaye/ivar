@@ -2,11 +2,14 @@ package cmdShim
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"github.com/harshalslimaye/ivar/internal/logger"
 )
 
 var PwshHeader string = `#!/usr/bin/env pwsh
@@ -119,21 +122,24 @@ func CmdShim(from, to string) {
 }
 
 func rm(to string) {
-	if _, err := os.Stat(to); os.IsExist(err) {
+	if _, err := os.Stat(to); !os.IsNotExist(err) {
 		if err := os.Remove(to); err != nil {
-			fmt.Println("Error while deleting existing links: ", err)
+			logger.Error("error while deleting existing links: ", err)
 		}
 	}
 }
 
 func writeShim(from, to string) {
-	if err := os.MkdirAll(filepath.Join("node_modules", ".bin"), 0755); err != nil {
-		fmt.Println("Error while creating .bin folder")
+	binPath := filepath.Join("node_modules", ".bin")
+	if _, binExists := os.Stat(binPath); os.IsNotExist(binExists) {
+		if err := os.MkdirAll(binPath, 0755); err != nil {
+			logger.Error("error while creating .bin folder", err)
+		}
 	}
 
 	file, err := os.Open(from)
 	if err != nil {
-		fmt.Println("Error while reading file: ", err)
+		logger.Error(fmt.Sprintf("error while reading file %s: ", from), err)
 	}
 
 	scanner := bufio.NewScanner(file)
@@ -142,7 +148,7 @@ func writeShim(from, to string) {
 	if scanner.Scan() {
 		firstLine = scanner.Text()
 	} else {
-		fmt.Print("Error file is empty " + to)
+		logger.Error("empty executable file: ", errors.New(fmt.Sprintf("File %s is empty", to)))
 	}
 
 	shebang := shebangExpr.FindStringSubmatch(firstLine)

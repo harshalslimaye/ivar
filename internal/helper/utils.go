@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/harshalslimaye/ivar/internal/packagejson"
 )
 
 func GetCurrentDirPath() string {
@@ -33,4 +35,16 @@ func GetFileName() string {
 
 func GetPackageJsonPath() string {
 	return GetCurrentDirPath() + GetPathSeparator() + GetFileName()
+}
+
+func Exists(path string) bool {
+	_, exists := os.Stat(path)
+
+	return !os.IsNotExist(exists)
+}
+
+func SameVersionExists(path string, version string) bool {
+	pkgJson := packagejson.ReadPackageJson(filepath.Join(path, "package.json"))
+
+	return pkgJson.Version == version
 }

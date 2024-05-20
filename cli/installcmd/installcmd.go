@@ -22,7 +22,7 @@ func InstallCmd() *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			t := time.Now()
 			fmt.Println(helper.ShowInfo("📄", "Reading package.json"))
-			pkgjson := packagejson.ReadPackageJson()
+			pkgjson := packagejson.ReadPackageJson(helper.GetPackageJsonPath())
 
 			fmt.Println(helper.ShowInfo("🔄", "Resolving Dependencies"))
 			gh := graph.NewDependencyGraph(pkgjson.GetProjectDependencies())
@@ -61,24 +61,38 @@ func WalkNode(parent *graph.Node, node *graph.Node, visited *sync.Map, wg *sync.
 		version, exists := visited.Load(node.Package.Name)
 
 		if exists {
-			if version != node.Package.Version {
-				node.DownloadDir = filepath.Join("node_modules", parent.Package.Name, "node_modules", node.Package.Name)
+			if version != node.Version() {
+				node.DownloadDir = filepath.Join("node_modules", parent.Name(), "node_modules", node.Name())
+				if helper.Exists(node.DownloadDir) {
+					node.DownloadDir = ""
+				}
 			}
 		} else {
-			node.DownloadDir = filepath.Join("node_modules", node.Package.Name)
-			visited.Store(node.Package.Name, node.Package.Version)
+			node.DownloadDir = filepath.Join("node_modules", node.Name())
+			visited.Store(node.Package.Name, node.Version())
+			if helper.Exists(node.DownloadDir) {
+				if helper.SameVersionExists(node.DownloadDir, node.Version()) {
+					node.DownloadDir = ""
+				} else {
+					alternateDir := filepath.Join("node_modules", parent.Name(), "node_modules", node.Name())
+					if helper.Exists(alternateDir) {
+						node.DownloadDir = ""
+					} else {
+						node.DownloadDir = alternateDir
+					}
+				}
+			}
 		}
 
-		// Process the package here (e.g., download and install)
-		if err := DownloadDependency(node); err != nil && node.DownloadDir != "" {
-			fmt.Println(aurora.Red(err))
-		} else {
-			createSymbolicLink(node)
-		}
-
-		// Recursively walk through dependencies
-		for _, dependencyNode := range node.Dependencies {
-			WalkNode(node, dependencyNode, visited, wg)
+		if node.DownloadDir != "" {
+			if err := DownloadDependency(node); err != nil {
+				fmt.Println(aurora.Red(err))
+			} else {
+				createSymbolicLink(node)
+				for _, dependencyNode := range node.Dependencies {
+					WalkNode(node, dependencyNode, visited, wg)
+				}
+			}
 		}
 	}()
 }
