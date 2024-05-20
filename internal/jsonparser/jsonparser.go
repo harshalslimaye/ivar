@@ -1,6 +1,9 @@
 package jsonparser
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/valyala/fastjson"
 )
 
@@ -25,7 +28,21 @@ func (jp *JsonParser) GetDependencies() map[string]string {
 func (jp *JsonParser) GetBin() map[string]string {
 	if jp.Exists("bin") {
 		if jp.IsObject("bin") {
+			fmt.Println(jp.GetObject("bin"))
 			return jp.GetObject("bin")
+		} else if jp.IsString("bin") {
+			if jp.IsScoped() {
+				chunks := strings.SplitN(jp.GetValue("name"), "/", 2)
+				if len(chunks) == 2 {
+					return map[string]string{
+						chunks[1]: jp.GetValue("bin"),
+					}
+				}
+			} else {
+				return map[string]string{
+					jp.GetValue("name"): jp.GetValue("bin"),
+				}
+			}
 		}
 	}
 	return nil
@@ -61,6 +78,10 @@ func (jp *JsonParser) IsString(key string) bool {
 	val := jp.value.Get(key)
 
 	return val.Type() == fastjson.TypeString
+}
+
+func (jp *JsonParser) IsScoped() bool {
+	return strings.HasPrefix(jp.GetValue("name"), "@")
 }
 
 func (jp *JsonParser) GetValue(key string) string {
