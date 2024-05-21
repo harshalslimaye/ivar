@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	cmdShim "github.com/harshalslimaye/ivar/internal/cmd-shim"
+	"github.com/harshalslimaye/ivar/internal/cmdshim"
 	"github.com/harshalslimaye/ivar/internal/graph"
 	"github.com/harshalslimaye/ivar/internal/helper"
 	"github.com/harshalslimaye/ivar/internal/loader"
@@ -110,7 +110,7 @@ func createSymbolicLink(node *graph.Node) {
 			source := filepath.Join(node.DownloadDir, path)
 			target := filepath.Join("node_modules", ".bin", name)
 
-			cmdShim.CmdShim(source, target)
+			cmdshim.CmdShim(source, target)
 		}
 	}
 }
