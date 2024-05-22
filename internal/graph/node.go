@@ -13,6 +13,8 @@ import (
 )
 
 type Node struct {
+	Graph        *Graph
+	Parent       *Node
 	Package      *Package
 	Dependencies map[string]*Node
 	Bin          map[string]string
