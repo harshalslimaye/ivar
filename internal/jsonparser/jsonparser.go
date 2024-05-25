@@ -1,6 +1,7 @@
 package jsonparser
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/valyala/fastjson"
@@ -8,6 +9,16 @@ import (
 
 type JsonParser struct {
 	value *fastjson.Value
+}
+
+func NewJsonParserFromBytes(data []byte) (*JsonParser, error) {
+	var p fastjson.Parser
+	value, err := p.ParseBytes(data)
+	if err != nil {
+		return nil, fmt.Errorf("unable to parse package.json: %s", err.Error())
+	}
+
+	return NewJsonParser(value), nil
 }
 
 func NewJsonParser(jp *fastjson.Value) *JsonParser {
@@ -18,10 +29,6 @@ func NewJsonParser(jp *fastjson.Value) *JsonParser {
 
 func (jp *JsonParser) Exists(key string) bool {
 	return jp.value.Exists(key)
-}
-
-func (jp *JsonParser) GetDependencies() map[string]string {
-	return jp.GetObject("dependencies")
 }
 
 func (jp *JsonParser) GetBin() map[string]string {
@@ -60,10 +67,6 @@ func (jp *JsonParser) GetObject(key string) map[string]string {
 	})
 
 	return objMap
-}
-
-func (jp *JsonParser) HasDependencies() bool {
-	return jp.Exists("dependencies")
 }
 
 func (jp *JsonParser) IsObject(key string) bool {

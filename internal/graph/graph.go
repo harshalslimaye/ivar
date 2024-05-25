@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/harshalslimaye/ivar/internal/jsonparser"
 	"github.com/harshalslimaye/ivar/internal/registry"
 )
 
@@ -17,12 +18,12 @@ func NewGraph() *Graph {
 	}
 }
 
-func NewDependencyGraph(deps map[string]string) *Graph {
+func NewDependencyGraph(parser *jsonparser.JsonParser) *Graph {
 	gh := NewGraph()
 	var wg sync.WaitGroup
 	var mt sync.Mutex
 
-	for name, version := range deps {
+	for name, version := range parser.GetObject("dependencies") {
 		wg.Add(1)
 		go func(n, v string) {
 			defer wg.Done()
@@ -51,8 +52,8 @@ func (g *Graph) AddDependencies(pkg *Package) *Node {
 	}
 
 	node.SetMetadata(parser)
-	if parser.HasDependencies() {
-		node.AddDependencies(parser.GetDependencies())
+	if parser.Exists("dependencies") {
+		node.AddDependencies(parser.GetObject("dependencies"))
 	}
 
 	return node

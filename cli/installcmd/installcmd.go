@@ -2,6 +2,7 @@ package installcmd
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"sync"
 	"time"
@@ -9,8 +10,8 @@ import (
 	"github.com/harshalslimaye/ivar/internal/cmdshim"
 	"github.com/harshalslimaye/ivar/internal/graph"
 	"github.com/harshalslimaye/ivar/internal/helper"
+	"github.com/harshalslimaye/ivar/internal/jsonparser"
 	"github.com/harshalslimaye/ivar/internal/loader"
-	"github.com/harshalslimaye/ivar/internal/packagejson"
 	"github.com/harshalslimaye/ivar/internal/tarball"
 	"github.com/logrusorgru/aurora"
 	"github.com/spf13/cobra"
@@ -23,10 +24,14 @@ func InstallCmd() *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			t := time.Now()
 			fmt.Println(helper.ShowInfo("📄", "Reading package.json"))
-			pkgjson := packagejson.ReadPackageJson(helper.GetPackageJsonPath())
+			parser, err := ReadPackageJson()
+			if err != nil {
+				fmt.Println(aurora.Red(parser))
+				os.Exit(1)
+			}
 
 			fmt.Println(helper.ShowInfo("🔄", "Resolving Dependencies"))
-			gh := graph.NewDependencyGraph(pkgjson.GetProjectDependencies())
+			gh := graph.NewDependencyGraph(parser)
 
 			fmt.Println(helper.ShowInfo("📦", "Fetching packages"))
 			WalkGraph(gh)
@@ -113,4 +118,13 @@ func createSymbolicLink(node *graph.Node) {
 			cmdshim.CmdShim(source, target)
 		}
 	}
+}
+
+func ReadPackageJson() (*jsonparser.JsonParser, error) {
+	data, err := os.ReadFile(helper.GetPackageJsonPath())
+	if err != nil {
+		return nil, fmt.Errorf("unable to read package.json: %s", err.Error())
+	}
+
+	return jsonparser.NewJsonParserFromBytes(data)
 }

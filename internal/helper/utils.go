@@ -25,16 +25,12 @@ func GetCurrentDirName() string {
 	return curDirName
 }
 
-func GetPathSeparator() string {
-	return string(filepath.Separator)
-}
-
 func GetFileName() string {
 	return "package.json"
 }
 
 func GetPackageJsonPath() string {
-	return GetCurrentDirPath() + GetPathSeparator() + GetFileName()
+	return filepath.Join(GetCurrentDirPath(), GetFileName())
 }
 
 func Exists(path string) bool {

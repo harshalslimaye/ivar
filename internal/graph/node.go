@@ -56,8 +56,8 @@ func (n *Node) AddDependencies(deps map[string]string) {
 			}
 
 			node.SetMetadata(parser)
-			if len(parser.GetDependencies()) > 0 {
-				node.AddDependencies(parser.GetDependencies())
+			if parser.Exists("dependencies") {
+				node.AddDependencies(parser.GetObject("dependencies"))
 			}
 		}(depName, depVersion)
 	}
