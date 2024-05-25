@@ -21,7 +21,6 @@ type Node struct {
 	Bin          map[string]string
 	TarballUrl   string
 	FileName     string
-	DownloadDir  string
 	Integrity    string
 	Category     string
 	mutex        sync.Mutex
@@ -114,10 +113,10 @@ func (n *Node) Version() string {
 	return n.Package.Version
 }
 
-func (n *Node) SourcePath() string {
-	return filepath.Join(n.DownloadDir, n.FileName)
+func (n *Node) SourcePath(dir string) string {
+	return filepath.Join(dir, n.FileName)
 }
 
-func (n *Node) TargetPath() string {
-	return filepath.Join(helper.GetCurrentDirPath(), n.DownloadDir)
+func (n *Node) TargetPath(dir string) string {
+	return filepath.Join(helper.GetCurrentDirPath(), dir)
 }

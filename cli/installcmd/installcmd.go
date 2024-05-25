@@ -64,36 +64,37 @@ func WalkNode(parent *graph.Node, node *graph.Node, visited *sync.Map, wg *sync.
 		defer wg.Done()
 
 		version, exists := visited.Load(node.Package.Name)
+		var dir string
 
 		if exists {
 			if version != node.Version() {
-				node.DownloadDir = filepath.Join("node_modules", parent.Name(), "node_modules", node.Name())
-				if helper.Exists(node.DownloadDir) {
-					node.DownloadDir = ""
+				dir = filepath.Join("node_modules", parent.Name(), "node_modules", node.Name())
+				if helper.Exists(dir) {
+					dir = ""
 				}
 			}
 		} else {
-			node.DownloadDir = filepath.Join("node_modules", node.Name())
+			dir = filepath.Join("node_modules", node.Name())
 			visited.Store(node.Package.Name, node.Version())
-			if helper.Exists(node.DownloadDir) {
-				if helper.SameVersionExists(node.DownloadDir, node.Version()) {
-					node.DownloadDir = ""
+			if helper.Exists(dir) {
+				if helper.SameVersionExists(dir, node.Version()) {
+					dir = ""
 				} else {
 					alternateDir := filepath.Join("node_modules", parent.Name(), "node_modules", node.Name())
 					if helper.Exists(alternateDir) {
-						node.DownloadDir = ""
+						dir = ""
 					} else {
-						node.DownloadDir = alternateDir
+						dir = alternateDir
 					}
 				}
 			}
 		}
 
-		if node.DownloadDir != "" {
-			if err := DownloadDependency(node); err != nil {
+		if dir != "" {
+			if err := DownloadDependency(node, dir); err != nil {
 				fmt.Println(aurora.Red(err))
 			} else {
-				createSymbolicLink(node)
+				createSymbolicLink(node, dir)
 				for _, dependencyNode := range node.Dependencies {
 					WalkNode(node, dependencyNode, visited, wg)
 				}
@@ -101,18 +102,18 @@ func WalkNode(parent *graph.Node, node *graph.Node, visited *sync.Map, wg *sync.
 		}
 	}()
 }
-func DownloadDependency(node *graph.Node) error {
-	if err := tarball.DownloadAndExtract(node); err != nil {
+func DownloadDependency(node *graph.Node, dir string) error {
+	if err := tarball.DownloadAndExtract(node, dir); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func createSymbolicLink(node *graph.Node) {
+func createSymbolicLink(node *graph.Node, dir string) {
 	if len(node.Bin) > 0 {
 		for name, path := range node.Bin {
-			source := filepath.Join(node.DownloadDir, path)
+			source := filepath.Join(dir, path)
 			target := filepath.Join("node_modules", ".bin", name)
 
 			cmdshim.CmdShim(source, target)
