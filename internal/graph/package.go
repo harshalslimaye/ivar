@@ -5,13 +5,15 @@ import (
 )
 
 type Package struct {
-	Name    string
-	Version string
+	Name       string
+	Version    string
+	RawVersion string
 }
 
 func NewPackage(packageName, packageVersion string) *Package {
 	return &Package{
-		Name:    packageName,
-		Version: registry.GetVersion(packageName, packageVersion),
+		Name:       packageName,
+		Version:    registry.GetVersion(packageName, packageVersion),
+		RawVersion: packageVersion,
 	}
 }

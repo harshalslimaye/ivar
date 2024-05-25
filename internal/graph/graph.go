@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/harshalslimaye/ivar/internal/constants"
 	"github.com/harshalslimaye/ivar/internal/jsonparser"
 	"github.com/harshalslimaye/ivar/internal/registry"
 )
@@ -24,14 +25,16 @@ func NewDependencyGraph(parser *jsonparser.JsonParser) *Graph {
 	var wg sync.WaitGroup
 	var mt sync.Mutex
 
-	for name, version := range parser.GetObject("dependencies") {
-		wg.Add(1)
-		go func(n, v string) {
-			defer wg.Done()
-			mt.Lock()
-			gh.AddDependencies(NewPackage(n, v))
-			mt.Unlock()
-		}(name, version)
+	for _, dType := range append(constants.DEPENDENCY_TYPES, "devDependencies") {
+		for name, version := range parser.GetObject(dType) {
+			wg.Add(1)
+			go func(n, v, t string) {
+				defer wg.Done()
+				mt.Lock()
+				gh.AddDependencies(NewPackage(n, v), t)
+				mt.Unlock()
+			}(name, version, dType)
+		}
 	}
 
 	wg.Wait()
@@ -39,18 +42,19 @@ func NewDependencyGraph(parser *jsonparser.JsonParser) *Graph {
 	return gh
 }
 
-func (g *Graph) AddDependencies(pkg *Package) *Node {
-	node := NewNode(pkg)
+func (g *Graph) AddDependencies(pkg *Package, category string) {
+	node := NewNode(pkg, category)
 
 	parser, err := registry.FetchDependencies(pkg.Name, pkg.Version)
 	if err != nil {
 		fmt.Println(err)
+	} else {
+		g.Nodes[pkg.Name] = node
+		node.SetMetadata(parser)
+		for _, dType := range constants.DEPENDENCY_TYPES {
+			if parser.Exists(dType) {
+				node.AddDependencies(parser.GetObject("dependencies"), dType)
+			}
+		}
 	}
-
-	node.SetMetadata(parser)
-	if parser.Exists("dependencies") {
-		node.AddDependencies(parser.GetObject("dependencies"))
-	}
-
-	return node
 }

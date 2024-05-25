@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"sync"
 
+	"github.com/harshalslimaye/ivar/internal/constants"
 	"github.com/harshalslimaye/ivar/internal/helper"
 	"github.com/harshalslimaye/ivar/internal/jsonparser"
 	"github.com/harshalslimaye/ivar/internal/registry"
@@ -22,18 +23,20 @@ type Node struct {
 	FileName     string
 	DownloadDir  string
 	Integrity    string
+	Category     string
 	mutex        sync.Mutex
 }
 
-func NewNode(pkg *Package) *Node {
+func NewNode(pkg *Package, category string) *Node {
 	return &Node{
 		Package:      pkg,
 		Dependencies: make(map[string]*Node),
 		Bin:          make(map[string]string),
+		Category:     category,
 	}
 }
 
-func (n *Node) AddDependencies(deps map[string]string) {
+func (n *Node) AddDependencies(deps map[string]string, category string) {
 	var wg sync.WaitGroup
 
 	for depName, depVersion := range deps {
@@ -43,7 +46,7 @@ func (n *Node) AddDependencies(deps map[string]string) {
 			defer wg.Done()
 
 			pkg := NewPackage(name, version)
-			node := NewNode(pkg)
+			node := NewNode(pkg, category)
 
 			n.Lock()
 			n.AddDependency(node)
@@ -56,9 +59,12 @@ func (n *Node) AddDependencies(deps map[string]string) {
 			}
 
 			node.SetMetadata(parser)
-			if parser.Exists("dependencies") {
-				node.AddDependencies(parser.GetObject("dependencies"))
+			for _, dType := range constants.DEPENDENCY_TYPES {
+				if parser.Exists(dType) {
+					node.AddDependencies(parser.GetObject(dType), dType)
+				}
 			}
+
 		}(depName, depVersion)
 	}
 
