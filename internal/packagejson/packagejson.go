@@ -85,24 +85,6 @@ func GetNewPackageJson(hasDefault bool, dirName string) *PackageJson {
 	return &pkgjson
 }
 
-func (p *PackageJson) GetProjectDependencies() map[string]string {
-	merged := make(map[string]string)
-
-	// Copy all key-value pairs from m1 to merged map
-	for k, v := range p.Dependencies {
-		merged[k] = v
-	}
-
-	for k, v := range p.DevDependencies {
-		if _, exists := merged[k]; exists {
-			continue
-		}
-		merged[k] = v
-	}
-
-	return merged
-}
-
 func Exists() bool {
 	_, err := os.Stat("package.json")
 	if err == nil {

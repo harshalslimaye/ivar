@@ -9,7 +9,8 @@ import (
 )
 
 type Graph struct {
-	Nodes map[string]*Node
+	Nodes     map[string]*Node
+	RootNodes map[string]*Node
 }
 
 func NewGraph() *Graph {
@@ -27,9 +28,8 @@ func NewDependencyGraph(parser *jsonparser.JsonParser) *Graph {
 		wg.Add(1)
 		go func(n, v string) {
 			defer wg.Done()
-			pkg := NewPackage(n, v)
 			mt.Lock()
-			gh.AddDependencies(pkg)
+			gh.AddDependencies(NewPackage(n, v))
 			mt.Unlock()
 		}(name, version)
 	}
@@ -40,11 +40,7 @@ func NewDependencyGraph(parser *jsonparser.JsonParser) *Graph {
 }
 
 func (g *Graph) AddDependencies(pkg *Package) *Node {
-	if node, exists := g.Nodes[pkg.Name]; exists {
-		return node
-	}
-
-	node := g.AddNode(pkg)
+	node := NewNode(pkg)
 
 	parser, err := registry.FetchDependencies(pkg.Name, pkg.Version)
 	if err != nil {
@@ -57,23 +53,4 @@ func (g *Graph) AddDependencies(pkg *Package) *Node {
 	}
 
 	return node
-}
-
-func (g *Graph) AddNode(pkg *Package) *Node {
-	if _, exists := g.Nodes[pkg.Name]; !exists {
-		g.Nodes[pkg.Name] = &Node{
-			Package:      pkg,
-			Dependencies: make(map[string]*Node),
-		}
-	}
-
-	return g.Nodes[pkg.Name]
-}
-
-func (g *Graph) GetDependency(packageName string) *Package {
-	if _, exists := g.Nodes[packageName]; exists {
-		return g.Nodes[packageName].Package
-	}
-
-	return nil
 }
