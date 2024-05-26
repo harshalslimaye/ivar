@@ -42,18 +42,26 @@ func InstallCmd() *cobra.Command {
 			}
 			WalkGraph(gh, &downloadList)
 
+			var wg sync.WaitGroup
+			// var mt sync.Mutex
 			downloadList.Range(func(key, value interface{}) bool {
 				downloadPath := key.(string)
 				node := value.(*graph.Node)
+				wg.Add(1)
 
-				if err := DownloadDependency(node, downloadPath); err != nil {
-					fmt.Println(err)
-				} else {
-					createSymbolicLink(node, downloadPath)
-				}
+				go func(ne *graph.Node, dp string) {
+					defer wg.Done()
+					if err := DownloadDependency(ne, dp); err != nil {
+						fmt.Println(aurora.Red(err))
+					} else {
+						createSymbolicLink(ne, dp)
+					}
+				}(node, downloadPath)
 
 				return true
 			})
+
+			wg.Wait()
 			loader.Clear()
 
 			fmt.Printf("%s %s %s\n", "🔥", aurora.Green("success"), "Installation complete!")
