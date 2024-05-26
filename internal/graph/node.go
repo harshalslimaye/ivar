@@ -10,6 +10,7 @@ import (
 	"github.com/harshalslimaye/ivar/internal/constants"
 	"github.com/harshalslimaye/ivar/internal/helper"
 	"github.com/harshalslimaye/ivar/internal/jsonparser"
+	"github.com/harshalslimaye/ivar/internal/loader"
 	"github.com/harshalslimaye/ivar/internal/registry"
 )
 
@@ -26,16 +27,25 @@ type Node struct {
 	mutex        sync.Mutex
 }
 
-func NewNode(pkg *Package, category string) *Node {
-	return &Node{
-		Package:      pkg,
-		Dependencies: make(map[string]*Node),
-		Bin:          make(map[string]string),
-		Category:     category,
+func NewNode(pkg *Package, category string, gh *Graph) *Node {
+	node := gh.Cache.Get(pkg.NameAndVersion())
+
+	if node == nil {
+		node = &Node{
+			Package:      pkg,
+			Dependencies: make(map[string]*Node),
+			Bin:          make(map[string]string),
+			Category:     category,
+			Graph:        gh,
+		}
+		gh.Cache.Set(pkg.NameAndVersion(), node)
 	}
+
+	return node
 }
 
 func (n *Node) AddDependencies(deps map[string]string, category string) {
+	loader.Show("\r" + "Resolving " + n.Name() + "@" + n.Version() + "...")
 	var wg sync.WaitGroup
 
 	for depName, depVersion := range deps {
@@ -44,16 +54,14 @@ func (n *Node) AddDependencies(deps map[string]string, category string) {
 		go func(name, version string) {
 			defer wg.Done()
 
-			pkg := NewPackage(name, version)
-			node := NewNode(pkg, category)
-
 			n.Lock()
+			node := NewNode(NewPackage(name, version), category, n.Graph)
 			n.AddDependency(node)
 			n.Unlock()
 
-			parser, err := registry.FetchDependencies(pkg.Name, pkg.Version)
+			parser, err := registry.FetchDependencies(node.Name(), node.Version())
 			if err != nil {
-				fmt.Printf("Failed to download %s@%s: \n", pkg.Name, pkg.Version)
+				fmt.Printf("Failed to download %s@%s: \n", node.Name(), node.Version())
 				fmt.Println(err)
 			}
 

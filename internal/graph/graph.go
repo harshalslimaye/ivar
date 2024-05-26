@@ -6,17 +6,19 @@ import (
 
 	"github.com/harshalslimaye/ivar/internal/constants"
 	"github.com/harshalslimaye/ivar/internal/jsonparser"
+	"github.com/harshalslimaye/ivar/internal/loader"
 	"github.com/harshalslimaye/ivar/internal/registry"
 )
 
 type Graph struct {
-	Nodes     map[string]*Node
-	RootNodes map[string]*Node
+	Nodes map[string]*Node
+	Cache *Cache
 }
 
 func NewGraph() *Graph {
 	return &Graph{
 		Nodes: make(map[string]*Node),
+		Cache: NewCache(),
 	}
 }
 
@@ -38,12 +40,13 @@ func NewDependencyGraph(parser *jsonparser.JsonParser) *Graph {
 	}
 
 	wg.Wait()
+	loader.Clear()
 
 	return gh
 }
 
 func (g *Graph) AddDependencies(pkg *Package, category string) {
-	node := NewNode(pkg, category)
+	node := NewNode(pkg, category, g)
 
 	parser, err := registry.FetchDependencies(pkg.Name, pkg.Version)
 	if err != nil {
