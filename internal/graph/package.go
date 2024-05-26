@@ -3,6 +3,7 @@ package graph
 import (
 	"fmt"
 
+	"github.com/harshalslimaye/ivar/internal/locker"
 	"github.com/harshalslimaye/ivar/internal/registry"
 )
 
@@ -12,7 +13,12 @@ type Package struct {
 	RawVersion string
 }
 
-func NewPackage(packageName, packageVersion string) *Package {
+func NewPackage(packageName, packageVersion string, lockFile *locker.File) *Package {
+	lockedVersion := lockFile.GetVersion(packageName, packageVersion)
+	if lockedVersion != "" {
+		return &Package{Name: packageName, Version: lockedVersion, RawVersion: packageVersion}
+	}
+
 	return &Package{
 		Name:       packageName,
 		Version:    registry.GetVersion(packageName, packageVersion),

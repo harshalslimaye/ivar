@@ -48,7 +48,11 @@ func InstallCmd() *cobra.Command {
 			downloadList.Range(func(key, value interface{}) bool {
 				downloadPath := key.(string)
 				node := value.(*graph.Node)
-				lr.Add(node, downloadPath)
+				lr.Add(
+					NewLockItem(node, downloadPath),
+					fmt.Sprintf("%s@%s", node.Name(), node.Package.RawVersion),
+				)
+
 				wg.Add(1)
 
 				go func(ne *graph.Node, dp string) {
@@ -169,5 +173,14 @@ func GetDownloadPath(n *graph.Node, p *graph.Node, dl *sync.Map) {
 	if !exists {
 		dl.Store(rootPath, n)
 		return
+	}
+}
+
+func NewLockItem(node *graph.Node, path string) *locker.Element {
+	return &locker.Element{
+		Version:   node.Version(),
+		Resolved:  node.TarballUrl,
+		Integrity: node.Integrity,
+		Path:      path,
 	}
 }

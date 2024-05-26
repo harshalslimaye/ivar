@@ -54,7 +54,7 @@ func (n *Node) AddDependencies(deps map[string]string, category string) {
 
 		go func(name, version string) {
 			defer wg.Done()
-			node := NewNode(NewPackage(name, version), category, n.Graph)
+			node := NewNode(NewPackage(name, version, n.Graph.LockFile), category, n.Graph)
 
 			parser, err := registry.FetchDependencies(node.Name(), node.Version())
 			if err != nil {

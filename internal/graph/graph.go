@@ -7,6 +7,7 @@ import (
 	"github.com/harshalslimaye/ivar/internal/constants"
 	"github.com/harshalslimaye/ivar/internal/jsonparser"
 	"github.com/harshalslimaye/ivar/internal/loader"
+	"github.com/harshalslimaye/ivar/internal/locker"
 	"github.com/harshalslimaye/ivar/internal/registry"
 )
 
@@ -15,6 +16,7 @@ type Graph struct {
 	Cache            *Cache
 	Versions         *Versions
 	RootDependencies []*Node
+	LockFile         *locker.File
 }
 
 func NewGraph() *Graph {
@@ -30,13 +32,15 @@ func NewDependencyGraph(parser *jsonparser.JsonParser) *Graph {
 	var wg sync.WaitGroup
 	var mt sync.Mutex
 
+	gh.LockFile = locker.NewLocker()
+
 	for _, dType := range append(constants.DEPENDENCY_TYPES, "devDependencies") {
 		for name, version := range parser.GetObject(dType) {
 			wg.Add(1)
 			go func(n, v, t string) {
 				defer wg.Done()
 				mt.Lock()
-				gh.AddDependencies(NewPackage(n, v), t)
+				gh.AddDependencies(NewPackage(n, v, gh.LockFile), t)
 				mt.Unlock()
 			}(name, version, dType)
 		}
