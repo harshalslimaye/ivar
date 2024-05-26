@@ -14,6 +14,7 @@ import (
 	"github.com/harshalslimaye/ivar/internal/helper"
 	"github.com/harshalslimaye/ivar/internal/jsonparser"
 	"github.com/harshalslimaye/ivar/internal/loader"
+	"github.com/harshalslimaye/ivar/internal/locker"
 	"github.com/harshalslimaye/ivar/internal/tarball"
 	"github.com/logrusorgru/aurora"
 	"github.com/spf13/cobra"
@@ -43,10 +44,11 @@ func InstallCmd() *cobra.Command {
 			WalkGraph(gh, &downloadList)
 
 			var wg sync.WaitGroup
-			// var mt sync.Mutex
+			lr := locker.NewLocker()
 			downloadList.Range(func(key, value interface{}) bool {
 				downloadPath := key.(string)
 				node := value.(*graph.Node)
+				lr.Add(node, downloadPath)
 				wg.Add(1)
 
 				go func(ne *graph.Node, dp string) {
@@ -62,6 +64,9 @@ func InstallCmd() *cobra.Command {
 			})
 
 			wg.Wait()
+			if err := lr.Write(); err != nil {
+				fmt.Println(aurora.Red(err))
+			}
 			loader.Clear()
 
 			fmt.Printf("%s %s %s\n", "🔥", aurora.Green("success"), "Installation complete!")
