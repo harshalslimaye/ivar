@@ -29,6 +29,7 @@ type Node struct {
 
 func NewNode(pkg *Package, category string, gh *Graph) *Node {
 	node := gh.Cache.Get(pkg.NameAndVersion())
+	gh.Versions.Set(pkg.Name, pkg.Version)
 
 	if node == nil {
 		node = &Node{
@@ -53,17 +54,21 @@ func (n *Node) AddDependencies(deps map[string]string, category string) {
 
 		go func(name, version string) {
 			defer wg.Done()
-
-			n.Lock()
 			node := NewNode(NewPackage(name, version), category, n.Graph)
-			n.AddDependency(node)
-			n.Unlock()
 
 			parser, err := registry.FetchDependencies(node.Name(), node.Version())
 			if err != nil {
-				fmt.Printf("Failed to download %s@%s: \n", node.Name(), node.Version())
+				fmt.Printf("Failed to resolve %s@%s: \n", node.Name(), node.Version())
 				fmt.Println(err)
+				return
 			}
+
+			n.Lock()
+			n.AddDependency(node)
+			if category == "peerDependencies" {
+				n.Graph.AtRoot(node)
+			}
+			n.Unlock()
 
 			node.SetMetadata(parser)
 			for _, dType := range constants.DEPENDENCY_TYPES {
@@ -127,4 +132,8 @@ func (n *Node) SourcePath(dir string) string {
 
 func (n *Node) TargetPath(dir string) string {
 	return filepath.Join(helper.GetCurrentDirPath(), dir)
+}
+
+func (n *Node) IsPeer() bool {
+	return n.Category == "peerDependencies"
 }

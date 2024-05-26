@@ -11,14 +11,17 @@ import (
 )
 
 type Graph struct {
-	Nodes map[string]*Node
-	Cache *Cache
+	Nodes            map[string]*Node
+	Cache            *Cache
+	Versions         *Versions
+	RootDependencies []*Node
 }
 
 func NewGraph() *Graph {
 	return &Graph{
-		Nodes: make(map[string]*Node),
-		Cache: NewCache(),
+		Nodes:    make(map[string]*Node),
+		Cache:    NewCache(),
+		Versions: NewVersions(),
 	}
 }
 
@@ -47,6 +50,7 @@ func NewDependencyGraph(parser *jsonparser.JsonParser) *Graph {
 
 func (g *Graph) AddDependencies(pkg *Package, category string) {
 	node := NewNode(pkg, category, g)
+	g.AtRoot(node)
 
 	parser, err := registry.FetchDependencies(pkg.Name, pkg.Version)
 	if err != nil {
@@ -60,4 +64,8 @@ func (g *Graph) AddDependencies(pkg *Package, category string) {
 			}
 		}
 	}
+}
+
+func (g *Graph) AtRoot(n *Node) {
+	g.RootDependencies = append(g.RootDependencies, n)
 }
