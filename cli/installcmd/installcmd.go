@@ -40,11 +40,11 @@ func InstallCmd() *cobra.Command {
 			if !helper.HasHomeDir() {
 				if homedir := helper.HomeDir(); homedir != "" {
 					if err := os.MkdirAll(homedir, 0755); err == nil {
-						gh.LocalStorage = true
+						gh.LocalStorageActive = true
 					}
 				}
 			} else {
-				gh.LocalStorage = true
+				gh.LocalStorageActive = true
 			}
 
 			fmt.Println(helper.ShowInfo("📦", "Downloading packages"))
@@ -173,7 +173,7 @@ func GetDownloadPath(n *graph.Node, p *graph.Node, dl *sync.Map) {
 			if latestVersion.String() == n.Version() {
 				dl.Store(rootPath, n)
 			} else {
-				dl.Store(rootPath, n.Graph.Cache.Get(fmt.Sprintf("%s@%s", n.Name(), latestVersion.String())))
+				dl.Store(rootPath, n.Graph.Store.Get(fmt.Sprintf("%s@%s", n.Name(), latestVersion.String())))
 				dl.Store(filepath.Join("node_modules", p.Name(), "node_modules", n.Name()), n)
 			}
 			return

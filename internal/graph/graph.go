@@ -12,18 +12,18 @@ import (
 )
 
 type Graph struct {
-	Nodes            map[string]*Node
-	Cache            *Cache
-	Versions         *Versions
-	RootDependencies []*Node
-	LockFile         *locker.File
-	LocalStorage     bool
+	Nodes              map[string]*Node
+	Store              *Store
+	Versions           *Versions
+	RootDependencies   []*Node
+	LockFile           *locker.File
+	LocalStorageActive bool
 }
 
 func NewGraph() *Graph {
 	return &Graph{
 		Nodes:    make(map[string]*Node),
-		Cache:    NewCache(),
+		Store:    NewStore(),
 		Versions: NewVersions(),
 	}
 }

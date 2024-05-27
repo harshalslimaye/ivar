@@ -28,7 +28,7 @@ type Node struct {
 }
 
 func NewNode(pkg *Package, category string, gh *Graph) *Node {
-	node := gh.Cache.Get(pkg.NameAndVersion())
+	node := gh.Store.Get(pkg.NameAndVersion())
 	gh.Versions.Set(pkg.Name, pkg.Version)
 
 	if node == nil {
@@ -39,7 +39,7 @@ func NewNode(pkg *Package, category string, gh *Graph) *Node {
 			Category:     category,
 			Graph:        gh,
 		}
-		gh.Cache.Set(pkg.NameAndVersion(), node)
+		gh.Store.Set(pkg.NameAndVersion(), node)
 	}
 
 	return node

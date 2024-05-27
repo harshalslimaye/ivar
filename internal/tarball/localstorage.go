@@ -10,7 +10,7 @@ import (
 )
 
 func LocalStorage(n *graph.Node, dir string) error {
-	if n.Graph.LocalStorage {
+	if n.Graph.LocalStorageActive {
 		localPath := filepath.Join(helper.HomeDir(), fmt.Sprintf("%s@%s", n.Name(), n.Version()))
 		if err := os.MkdirAll(localPath, 0755); err == nil {
 			copyContents(n.TargetPath(dir), localPath)
