@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/harshalslimaye/ivar/internal/constants"
+	"github.com/harshalslimaye/ivar/internal/helper"
 	"github.com/harshalslimaye/ivar/internal/jsonparser"
 	"github.com/harshalslimaye/ivar/internal/loader"
 	"github.com/harshalslimaye/ivar/internal/locker"
@@ -33,6 +34,7 @@ func NewDependencyGraph(parser *jsonparser.JsonParser) *Graph {
 	var wg sync.WaitGroup
 	var mt sync.Mutex
 
+	fmt.Println(helper.ShowInfo("🔍", "Searching for ivar.lock"))
 	gh.LockFile = locker.NewLocker()
 
 	for _, dType := range append(constants.DEPENDENCY_TYPES, "devDependencies") {
