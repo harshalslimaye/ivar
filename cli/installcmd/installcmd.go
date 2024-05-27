@@ -37,6 +37,16 @@ func InstallCmd() *cobra.Command {
 			fmt.Println(helper.ShowInfo("🔄", "Resolving Dependencies"))
 			gh := graph.NewDependencyGraph(parser)
 
+			if !helper.HasHomeDir() {
+				if homedir := helper.HomeDir(); homedir != "" {
+					if err := os.MkdirAll(homedir, 0755); err == nil {
+						gh.LocalStorage = true
+					}
+				}
+			} else {
+				gh.LocalStorage = true
+			}
+
 			fmt.Println(helper.ShowInfo("📦", "Downloading packages"))
 			for _, d := range gh.RootDependencies {
 				downloadList.Store(filepath.Join("node_modules", d.Name()), d)

@@ -17,6 +17,7 @@ type Graph struct {
 	Versions         *Versions
 	RootDependencies []*Node
 	LockFile         *locker.File
+	LocalStorage     bool
 }
 
 func NewGraph() *Graph {

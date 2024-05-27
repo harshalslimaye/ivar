@@ -44,3 +44,23 @@ func SameVersionExists(path string, version string) bool {
 
 	return pkgJson.Version == version
 }
+
+func HomeDir() string {
+	if homeDir, err := os.UserHomeDir(); err == nil {
+		return filepath.Join(homeDir, ".ivar", "cache")
+	}
+
+	return ""
+}
+
+func HasHomeDir() bool {
+	homeDir := HomeDir()
+
+	if homeDir == "" {
+		return false
+	}
+
+	_, err := os.Stat(homeDir)
+
+	return !os.IsNotExist(err)
+}

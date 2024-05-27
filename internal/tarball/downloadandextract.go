@@ -24,5 +24,9 @@ func DownloadAndExtract(n *graph.Node, dir string) error {
 		return fmt.Errorf("unable to delete the tgz file for %s@%s: %s", n.Name(), n.Version(), err.Error())
 	}
 
+	if err := LocalStorage(n, dir); err != nil {
+		fmt.Println(err.Error())
+	}
+
 	return nil
 }
