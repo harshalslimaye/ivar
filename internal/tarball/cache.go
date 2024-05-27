@@ -24,7 +24,7 @@ func ToCache(n *graph.Node, dir string) error {
 
 func InstallFromCache(n *graph.Node, dir string) error {
 	if !n.Graph.Cache.IsInCache(n.Name(), n.Version()) {
-		return fmt.Errorf("package not avalaible in cache: %s@%s", n.Name(), n.Version())
+		return fmt.Errorf("package not available in cache: %s@%s", n.Name(), n.Version())
 	}
 
 	if err := CopyContents(n.Graph.Cache.Path(n.Name(), n.Version()), n.TargetPath(dir)); err != nil {
