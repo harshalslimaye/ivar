@@ -68,7 +68,7 @@ func moveContents(sourceDir, targetDir string) error {
 	return nil
 }
 
-func copyFile(sourceFile, targetFile string) error {
+func CopyFile(sourceFile, targetFile string) error {
 	source, err := os.Open(sourceFile)
 	if err != nil {
 		return err
@@ -93,7 +93,7 @@ func copyFile(sourceFile, targetFile string) error {
 	return os.Chmod(targetFile, sourceInfo.Mode())
 }
 
-func copyContents(sourceDir, targetDir string) error {
+func CopyContents(sourceDir, targetDir string) error {
 	entries, err := os.ReadDir(sourceDir)
 	if err != nil {
 		return err
@@ -111,12 +111,12 @@ func copyContents(sourceDir, targetDir string) error {
 				}
 			}
 			// Copy contents recursively
-			if err := copyContents(sourcePath, targetPath); err != nil {
+			if err := CopyContents(sourcePath, targetPath); err != nil {
 				return err
 			}
 		} else {
 			// Copy the file
-			if err := copyFile(sourcePath, targetPath); err != nil {
+			if err := CopyFile(sourcePath, targetPath); err != nil {
 				return err
 			}
 		}

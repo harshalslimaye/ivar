@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/harshalslimaye/ivar/internal/cache"
 	"github.com/harshalslimaye/ivar/internal/constants"
-	"github.com/harshalslimaye/ivar/internal/helper"
 	"github.com/harshalslimaye/ivar/internal/jsonparser"
 	"github.com/harshalslimaye/ivar/internal/loader"
 	"github.com/harshalslimaye/ivar/internal/locker"
@@ -13,12 +13,13 @@ import (
 )
 
 type Graph struct {
-	Nodes              map[string]*Node
-	Store              *Store
-	Versions           *Versions
-	RootDependencies   []*Node
-	LockFile           *locker.File
-	LocalStorageActive bool
+	Nodes            map[string]*Node
+	Store            *Store
+	Versions         *Versions
+	RootDependencies []*Node
+	LockFile         *locker.File
+	HasCache         bool
+	Cache            *cache.Cache
 }
 
 func NewGraph() *Graph {
@@ -26,6 +27,8 @@ func NewGraph() *Graph {
 		Nodes:    make(map[string]*Node),
 		Store:    NewStore(),
 		Versions: NewVersions(),
+		Cache:    cache.NewCache(),
+		LockFile: locker.NewLocker(),
 	}
 }
 
@@ -33,9 +36,6 @@ func NewDependencyGraph(parser *jsonparser.JsonParser) *Graph {
 	gh := NewGraph()
 	var wg sync.WaitGroup
 	var mt sync.Mutex
-
-	fmt.Println(helper.ShowInfo("🔍", "Searching for ivar.lock"))
-	gh.LockFile = locker.NewLocker()
 
 	for _, dType := range append(constants.DEPENDENCY_TYPES, "devDependencies") {
 		for name, version := range parser.GetObject(dType) {

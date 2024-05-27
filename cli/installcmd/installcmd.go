@@ -40,11 +40,11 @@ func InstallCmd() *cobra.Command {
 			if !helper.HasHomeDir() {
 				if homedir := helper.HomeDir(); homedir != "" {
 					if err := os.MkdirAll(homedir, 0755); err == nil {
-						gh.LocalStorageActive = true
+						gh.HasCache = true
 					}
 				}
 			} else {
-				gh.LocalStorageActive = true
+				gh.HasCache = true
 			}
 
 			fmt.Println(helper.ShowInfo("📦", "Downloading packages"))
