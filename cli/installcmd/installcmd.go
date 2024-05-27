@@ -23,7 +23,7 @@ import (
 func InstallCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "install",
-		Short: "This command installs a package along with its dependencies.",
+		Short: "Installs a package along with its dependencies.",
 		Run: func(cmd *cobra.Command, args []string) {
 			var downloadList sync.Map
 			t := time.Now()

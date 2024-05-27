@@ -38,6 +38,10 @@ func (c *Cache) IsInCache(name, version string) bool {
 	return false
 }
 
+func (c *Cache) IsEmpty() bool {
+	return len(c.Packages) == 0
+}
+
 func (c *Cache) Path(name, version string) string {
 	return filepath.Join(helper.HomeDir(), fmt.Sprintf("%s@%s", name, version))
 }
