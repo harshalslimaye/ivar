@@ -54,11 +54,13 @@ func (n *Node) AddDependencies(deps map[string]string, category string) {
 
 		go func(name, version string) {
 			defer wg.Done()
+			n.Lock()
 			node := NewNode(NewPackage(name, version, n.Graph.LockFile), category, n.Graph)
+			n.Unlock()
 
 			parser, err := registry.FetchDependencies(node.Name(), node.Version())
 			if err != nil {
-				fmt.Printf("Failed to resolve %s@%s: \n", node.Name(), node.Version())
+				fmt.Printf("failed to resolve %s@%s: %s \n", node.Name(), node.Version(), err.Error())
 				fmt.Println(err)
 				return
 			}

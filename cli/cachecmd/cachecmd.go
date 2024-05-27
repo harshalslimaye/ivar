@@ -3,9 +3,9 @@ package cachecmd
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/harshalslimaye/ivar/internal/cache"
+	"github.com/harshalslimaye/ivar/internal/filesystem"
 	"github.com/harshalslimaye/ivar/internal/helper"
 	"github.com/logrusorgru/aurora"
 	"github.com/spf13/cobra"
@@ -50,25 +50,10 @@ func Clean() error {
 			os.Exit(1)
 		}
 
-		if err := DeleteContent(helper.HomeDir()); err != nil {
+		if err := filesystem.DeleteContents(helper.HomeDir()); err != nil {
 			return err
 		}
 	}
 
 	return nil
-}
-
-func DeleteContent(path string) error {
-	entries, err := os.ReadDir(path)
-
-	if err != nil {
-		return fmt.Errorf("unable tp read %s: %s", path, err.Error())
-	}
-
-	for _, entry := range entries {
-		entryPath := filepath.Join(path, entry.Name())
-		err = os.RemoveAll(entryPath)
-	}
-
-	return err
 }

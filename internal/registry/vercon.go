@@ -10,10 +10,22 @@ import (
 	"github.com/Masterminds/semver/v3"
 )
 
-var cache sync.Map
+var store sync.Map
 
 func GetVersion(name string, version string) string {
-	return FindExactVersion(version, GetAvailableVersions(name))
+	key := fmt.Sprintf("%s@%s", name, version)
+
+	if storedVersion, found := store.Load(key); found {
+		if value, okay := storedVersion.(string); okay {
+			return value
+		}
+	}
+
+	exactVersion := FindExactVersion(version, GetAvailableVersions(name))
+
+	store.Store(key, exactVersion)
+
+	return exactVersion
 }
 
 func FindExactVersion(constraint string, versions []*semver.Version) string {

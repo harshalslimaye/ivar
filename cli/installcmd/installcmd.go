@@ -22,8 +22,9 @@ import (
 
 func InstallCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "install",
-		Short: "Installs a package along with its dependencies.",
+		Use:     "install",
+		Aliases: []string{"i"},
+		Short:   "Installs a package along with its dependencies.",
 		Run: func(cmd *cobra.Command, args []string) {
 			var downloadList sync.Map
 			t := time.Now()

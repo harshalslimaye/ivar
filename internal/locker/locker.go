@@ -37,8 +37,7 @@ func (l *File) Add(i *Element, key string) {
 func (l *File) Write() error {
 	path := filepath.Join(helper.GetCurrentDirPath(), "ivar.lock")
 
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		fmt.Println("deleting ivar.lock")
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
 		if err := os.Remove(path); err != nil {
 			fmt.Printf("error while deleting existing ivar.lock file: %s \n", err.Error())
 		}
