@@ -28,7 +28,6 @@ func DownloadAndExtract(n *graph.Node, dir string) error {
 }
 
 func InstallFromRegistry(n *graph.Node, dir string) error {
-	fmt.Println(n.Name(), n.Version(), dir)
 	if err := DownloadTarball(n, dir); err != nil {
 		return fmt.Errorf("unable to download the package %s@%s: %s", n.Name(), n.Version(), err.Error())
 	}

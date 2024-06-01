@@ -25,6 +25,7 @@ type Node struct {
 	Integrity    string
 	Category     string
 	mutex        sync.Mutex
+	PrunedNodes  map[string]*Node
 }
 
 func NewNode(pkg *Package, category string, gh *Graph) *Node {
@@ -38,6 +39,7 @@ func NewNode(pkg *Package, category string, gh *Graph) *Node {
 			Bin:          make(map[string]string),
 			Category:     category,
 			Graph:        gh,
+			PrunedNodes:  make(map[string]*Node),
 		}
 		gh.Store.Set(pkg.NameAndVersion(), node)
 	}
