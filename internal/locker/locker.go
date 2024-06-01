@@ -39,7 +39,7 @@ func (l *File) Write() error {
 
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
 		if err := os.Remove(path); err != nil {
-			fmt.Printf("error while deleting existing ivar.lock file: %s \n", err.Error())
+			return fmt.Errorf("error while deleting existing ivar.lock file: %s", err.Error())
 		}
 	}
 

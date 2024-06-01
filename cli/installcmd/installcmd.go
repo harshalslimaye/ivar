@@ -12,7 +12,6 @@ import (
 	"github.com/harshalslimaye/ivar/internal/helper"
 	"github.com/harshalslimaye/ivar/internal/jsonparser"
 	"github.com/harshalslimaye/ivar/internal/loader"
-	"github.com/harshalslimaye/ivar/internal/locker"
 	"github.com/harshalslimaye/ivar/internal/tarball"
 	"github.com/logrusorgru/aurora"
 	"github.com/spf13/cobra"
@@ -24,7 +23,6 @@ func InstallCmd() *cobra.Command {
 		Aliases: []string{"i"},
 		Short:   "Installs a package along with its dependencies.",
 		Run: func(cmd *cobra.Command, args []string) {
-			var downloadList graph.List
 			t := time.Now()
 			fmt.Println(helper.ShowInfo("📄", "Reading package.json"))
 			parser, err := ReadPackageJson()
@@ -35,6 +33,7 @@ func InstallCmd() *cobra.Command {
 
 			fmt.Println(helper.ShowInfo("🔄", "Resolving Dependencies"))
 			gh := graph.NewDependencyGraph(parser)
+			downloadList := graph.NewList(gh)
 
 			if !helper.HasHomeDir() {
 				if homedir := helper.HomeDir(); homedir != "" {
@@ -50,11 +49,16 @@ func InstallCmd() *cobra.Command {
 			for _, d := range gh.RootDependencies {
 				downloadList.AddNode(d, nil)
 			}
-			WalkGraph(gh, &downloadList)
+			WalkGraph(gh, downloadList)
 
 			var wg sync.WaitGroup
 			Download(downloadList.Map(), &wg)
 			wg.Wait()
+			loader.Clear()
+
+			if err := gh.LockFile.Write(); err != nil {
+				fmt.Println(aurora.Red(err))
+			}
 
 			fmt.Printf("%s %s %s\n", "🔥", aurora.Green("success"), "Installation complete!")
 			duration := time.Since(t).Round(time.Millisecond * 10)
@@ -128,13 +132,4 @@ func ReadPackageJson() (*jsonparser.JsonParser, error) {
 	}
 
 	return jsonparser.NewJsonParserFromBytes(data)
-}
-
-func NewLockItem(node *graph.Node, path string) *locker.Element {
-	return &locker.Element{
-		Version:   node.Version(),
-		Resolved:  node.TarballUrl,
-		Integrity: node.Integrity,
-		Path:      path,
-	}
 }

@@ -15,6 +15,7 @@ type Package struct {
 
 func NewPackage(packageName, packageVersion string, lockFile *locker.File) *Package {
 	lockedVersion := lockFile.GetVersion(packageName, packageVersion)
+
 	if lockedVersion != "" {
 		return &Package{Name: packageName, Version: lockedVersion, RawVersion: packageVersion}
 	}

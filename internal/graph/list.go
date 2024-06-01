@@ -7,10 +7,12 @@ import (
 	"sync"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/harshalslimaye/ivar/internal/locker"
 )
 
 type List struct {
 	NodeMap sync.Map
+	Graph   *Graph
 }
 
 func (l *List) Map() map[string]*Node {
@@ -35,7 +37,9 @@ func (l *List) AddNode(n *Node, p *Node) {
 
 	if exists {
 		if node, okay := value.(*Node); !okay || node.Version() != n.Version() {
-			p.PrunedNodes[filepath.Join("node_modules", p.Name(), "node_modules", n.Name())] = n
+			key := filepath.Join("node_modules", p.Name(), "node_modules", n.Name())
+			p.PrunedNodes[key] = n
+			l.Graph.LockFile.Add(NewLockItem(n, key), key)
 			return
 		}
 	}
@@ -59,8 +63,11 @@ func (l *List) AddNode(n *Node, p *Node) {
 			latestVersion := versions[len(versions)-1]
 			if latestVersion.String() == n.Version() {
 				l.NodeMap.Store(rootPath, n)
+				l.Graph.LockFile.Add(NewLockItem(n, rootPath), rootPath)
 			} else {
-				p.PrunedNodes[filepath.Join("node_modules", p.Name(), "node_modules", n.Name())] = n
+				key := filepath.Join("node_modules", p.Name(), "node_modules", n.Name())
+				p.PrunedNodes[key] = n
+				l.Graph.LockFile.Add(NewLockItem(n, key), key)
 			}
 			return
 		}
@@ -68,6 +75,23 @@ func (l *List) AddNode(n *Node, p *Node) {
 
 	if !exists {
 		l.NodeMap.Store(rootPath, n)
+		l.Graph.LockFile.Add(NewLockItem(n, rootPath), rootPath)
 		return
+	}
+}
+
+func NewList(gh *Graph) *List {
+	return &List{
+		NodeMap: sync.Map{},
+		Graph:   gh,
+	}
+}
+
+func NewLockItem(node *Node, path string) *locker.Element {
+	return &locker.Element{
+		Version:   node.Version(),
+		Resolved:  node.TarballUrl,
+		Integrity: node.Integrity,
+		Path:      path,
 	}
 }
