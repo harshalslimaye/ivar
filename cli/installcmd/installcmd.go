@@ -174,7 +174,6 @@ func GetDownloadPath(n *graph.Node, p *graph.Node, dl *sync.Map) {
 			if latestVersion.String() == n.Version() {
 				dl.Store(rootPath, n)
 			} else {
-				dl.Store(rootPath, n.Graph.Store.Get(fmt.Sprintf("%s@%s", n.Name(), latestVersion.String())))
 				dl.Store(filepath.Join("node_modules", p.Name(), "node_modules", n.Name()), n)
 			}
 			return

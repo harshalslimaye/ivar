@@ -12,7 +12,7 @@ func DownloadAndExtract(n *graph.Node, dir string) error {
 		return fmt.Errorf("unable to create %s: %s", dir, err.Error())
 	}
 
-	if n.Graph.Cache != nil {
+	if n.Graph.HasCache {
 		if err := InstallFromCache(n, dir); err != nil {
 			if err = InstallFromRegistry(n, dir); err != nil {
 				return err
@@ -28,6 +28,7 @@ func DownloadAndExtract(n *graph.Node, dir string) error {
 }
 
 func InstallFromRegistry(n *graph.Node, dir string) error {
+	fmt.Println(n.Name(), n.Version(), dir)
 	if err := DownloadTarball(n, dir); err != nil {
 		return fmt.Errorf("unable to download the package %s@%s: %s", n.Name(), n.Version(), err.Error())
 	}

@@ -90,10 +90,12 @@ func (n *Node) AddDependency(node *Node) {
 }
 
 func (n *Node) SetMetadata(parser *jsonparser.JsonParser) {
+	n.Lock()
 	n.TarballUrl = parser.TarballUrl()
 	n.Integrity = parser.GetValue("integrity")
 	n.SetTarName(n.TarballUrl)
 	n.SetBin(parser.GetBin())
+	n.Unlock()
 }
 
 func (n *Node) SetTarName(urlString string) {
