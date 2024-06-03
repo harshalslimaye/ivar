@@ -10,11 +10,12 @@ import (
 	"github.com/harshalslimaye/ivar/internal/loader"
 	"github.com/harshalslimaye/ivar/internal/locker"
 	"github.com/harshalslimaye/ivar/internal/registry"
+	"github.com/harshalslimaye/ivar/internal/store"
 )
 
 type Graph struct {
 	Nodes            map[string]*Node
-	Store            *Store
+	Store            *store.Store
 	Versions         *Versions
 	RootDependencies []*Node
 	LockFile         *locker.File
@@ -26,7 +27,7 @@ type Graph struct {
 func NewGraph() *Graph {
 	return &Graph{
 		Nodes:    make(map[string]*Node),
-		Store:    NewStore(),
+		Store:    store.GetStore(),
 		Versions: NewVersions(),
 		Cache:    cache.NewCache(),
 		LockFile: locker.NewLocker(),

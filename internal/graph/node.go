@@ -29,20 +29,25 @@ type Node struct {
 }
 
 func NewNode(pkg *Package, category string, gh *Graph) *Node {
-	node := gh.Store.Get(pkg.NameAndVersion())
 	gh.Versions.Set(pkg.Name, pkg.Version)
 
-	if node == nil {
-		node = &Node{
-			Package:      pkg,
-			Dependencies: make(map[string]*Node),
-			Bin:          make(map[string]string),
-			Category:     category,
-			Graph:        gh,
-			PrunedNodes:  make(map[string]*Node),
-		}
-		gh.Store.Set(pkg.NameAndVersion(), node)
+	value := gh.Store.Get(pkg.NameAndVersion())
+
+	node, okay := value.(*Node)
+
+	if okay && node != nil {
+		return node
 	}
+
+	node = &Node{
+		Package:      pkg,
+		Dependencies: make(map[string]*Node),
+		Bin:          make(map[string]string),
+		Category:     category,
+		Graph:        gh,
+		PrunedNodes:  make(map[string]*Node),
+	}
+	gh.Store.Set(pkg.NameAndVersion(), node)
 
 	return node
 }
