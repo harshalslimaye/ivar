@@ -2,8 +2,8 @@ package graph
 
 import (
 	"fmt"
-	"sync"
 
+	"github.com/alitto/pond"
 	"github.com/harshalslimaye/ivar/internal/cache"
 	"github.com/harshalslimaye/ivar/internal/constants"
 	"github.com/harshalslimaye/ivar/internal/jsonparser"
@@ -20,6 +20,7 @@ type Graph struct {
 	LockFile         *locker.File
 	HasCache         bool
 	Cache            *cache.Cache
+	Pool             *pond.WorkerPool
 }
 
 func NewGraph() *Graph {
@@ -29,28 +30,25 @@ func NewGraph() *Graph {
 		Versions: NewVersions(),
 		Cache:    cache.NewCache(),
 		LockFile: locker.NewLocker(),
+		Pool:     pond.New(25, 0, pond.MinWorkers(10)),
 	}
 }
 
 func NewDependencyGraph(parser *jsonparser.JsonParser) *Graph {
 	gh := NewGraph()
-	var wg sync.WaitGroup
-	var mt sync.Mutex
 
 	for _, dType := range append(constants.DEPENDENCY_TYPES, "devDependencies") {
 		for name, version := range parser.GetObject(dType) {
-			wg.Add(1)
-			go func(n, v, t string) {
-				defer wg.Done()
-				mt.Lock()
-				gh.AddDependencies(NewPackage(n, v, gh.LockFile), t)
-				mt.Unlock()
-			}(name, version, dType)
+
+			gh.Pool.Submit(func() {
+				gh.AddDependencies(NewPackage(name, version, gh.LockFile), dType)
+			})
 		}
 	}
 
-	wg.Wait()
 	loader.Clear()
+
+	gh.Pool.StopAndWait()
 
 	return gh
 }

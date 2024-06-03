@@ -49,46 +49,36 @@ func NewNode(pkg *Package, category string, gh *Graph) *Node {
 
 func (n *Node) AddDependencies(deps map[string]string, category string) {
 	loader.Show("\r" + "Resolving " + n.Name() + "@" + n.Version() + "...")
-	var wg sync.WaitGroup
 
 	for depName, depVersion := range deps {
-		wg.Add(1)
 
-		go func(name, version string) {
-			defer wg.Done()
-			n.Lock()
-			node := NewNode(NewPackage(name, version, n.Graph.LockFile), category, n.Graph)
-			n.Unlock()
+		node := NewNode(NewPackage(depName, depVersion, n.Graph.LockFile), category, n.Graph)
 
-			parser, err := registry.FetchDependencies(node.Name(), node.Version())
-			if err != nil {
-				fmt.Printf("failed to resolve %s@%s: %s \n", node.Name(), node.Version(), err.Error())
-				fmt.Println(err)
-				return
+		parser, err := registry.FetchDependencies(node.Name(), node.Version())
+		if err != nil {
+			fmt.Printf("failed to resolve %s@%s: %s \n", node.Name(), node.Version(), err.Error())
+			fmt.Println(err)
+			return
+		}
+
+		n.AddDependency(node)
+		if category == "peerDependencies" {
+			n.Graph.AtRoot(node)
+		}
+
+		node.SetMetadata(parser)
+		for _, dType := range constants.DEPENDENCY_TYPES {
+			if parser.Exists(dType) {
+				node.AddDependencies(parser.GetObject(dType), dType)
 			}
-
-			n.Lock()
-			n.AddDependency(node)
-			if category == "peerDependencies" {
-				n.Graph.AtRoot(node)
-			}
-			n.Unlock()
-
-			node.SetMetadata(parser)
-			for _, dType := range constants.DEPENDENCY_TYPES {
-				if parser.Exists(dType) {
-					node.AddDependencies(parser.GetObject(dType), dType)
-				}
-			}
-
-		}(depName, depVersion)
+		}
 	}
-
-	wg.Wait()
 }
 
 func (n *Node) AddDependency(node *Node) {
+	n.Lock()
 	n.Dependencies[node.Package.Name] = node
+	n.Unlock()
 }
 
 func (n *Node) SetMetadata(parser *jsonparser.JsonParser) {
