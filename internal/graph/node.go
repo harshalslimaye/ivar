@@ -11,7 +11,6 @@ import (
 	"github.com/harshalslimaye/ivar/internal/helper"
 	"github.com/harshalslimaye/ivar/internal/jsonparser"
 	"github.com/harshalslimaye/ivar/internal/loader"
-	"github.com/harshalslimaye/ivar/internal/registry"
 )
 
 type Node struct {
@@ -59,7 +58,7 @@ func (n *Node) AddDependencies(deps map[string]string, category string) {
 
 		node := NewNode(NewPackage(depName, depVersion, n.Graph.LockFile), category, n.Graph)
 
-		parser, err := registry.FetchDependencies(node.Name(), node.Version())
+		parser, err := n.Graph.Registry.Fetch(node.Name(), node.Version())
 		if err != nil {
 			fmt.Printf("failed to resolve %s@%s: %s \n", node.Name(), node.Version(), err.Error())
 			fmt.Println(err)

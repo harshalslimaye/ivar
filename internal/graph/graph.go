@@ -22,6 +22,7 @@ type Graph struct {
 	HasCache         bool
 	Cache            *cache.Cache
 	Pool             *pond.WorkerPool
+	Registry         *registry.Registry
 }
 
 func NewGraph() *Graph {
@@ -32,6 +33,7 @@ func NewGraph() *Graph {
 		Cache:    cache.NewCache(),
 		LockFile: locker.NewLocker(),
 		Pool:     pond.New(25, 0, pond.MinWorkers(10)),
+		Registry: registry.NewRegistry(),
 	}
 }
 
@@ -40,7 +42,6 @@ func NewDependencyGraph(parser *jsonparser.JsonParser) *Graph {
 
 	for _, dType := range append(constants.DEPENDENCY_TYPES, "devDependencies") {
 		for name, version := range parser.GetObject(dType) {
-
 			gh.Pool.Submit(func() {
 				gh.AddDependencies(NewPackage(name, version, gh.LockFile), dType)
 			})
@@ -58,7 +59,7 @@ func (g *Graph) AddDependencies(pkg *Package, category string) {
 	node := NewNode(pkg, category, g)
 	g.AtRoot(node)
 
-	parser, err := registry.FetchDependencies(pkg.Name, pkg.Version)
+	parser, err := g.Registry.Fetch(pkg.Name, pkg.Version)
 	if err != nil {
 		fmt.Println(err)
 	} else {
